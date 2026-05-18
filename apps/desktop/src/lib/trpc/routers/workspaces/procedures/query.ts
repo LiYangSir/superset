@@ -70,6 +70,7 @@ export const createQueryProcedures = () => {
 								id: project.id,
 								name: project.name,
 								mainRepoPath: project.mainRepoPath,
+								spaceId: project.spaceId ?? null,
 								githubOwner: project.githubOwner ?? null,
 								defaultBranch: project.defaultBranch ?? null,
 							}
@@ -155,6 +156,7 @@ export const createQueryProcedures = () => {
 						name: string;
 						color: string;
 						tabOrder: number;
+						spaceId: string | null;
 						githubOwner: string | null;
 						mainRepoPath: string;
 						hideImage: boolean;
@@ -187,6 +189,7 @@ export const createQueryProcedures = () => {
 						color: project.color,
 						// biome-ignore lint/style/noNonNullAssertion: filter guarantees tabOrder is not null
 						tabOrder: project.tabOrder!,
+						spaceId: project.spaceId ?? null,
 						githubOwner: project.githubOwner ?? null,
 						mainRepoPath: project.mainRepoPath,
 						hideImage: project.hideImage ?? false,

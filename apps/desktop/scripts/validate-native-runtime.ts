@@ -36,57 +36,6 @@ function assertExists(path: string, reason: string): void {
 	}
 }
 
-function validateLibsqlNotBundled(): void {
-	const sourceMapPath = join(projectRoot, "dist", "main", "index.js.map");
-	assertExists(
-		sourceMapPath,
-		"Main bundle sourcemap not found. Run `bun run compile:app` first.",
-	);
-
-	const sourceMap = readFileSync(sourceMapPath, "utf8");
-	if (sourceMap.includes("node_modules/.bun/libsql@")) {
-		fail(
-			[
-				"Detected bundled `libsql` sources in dist/main/index.js.map.",
-				"This usually causes runtime dynamic require failures in packaged apps.",
-				"Ensure `libsql` stays in `rollupOptions.external` for the main process.",
-			].join("\n"),
-		);
-	}
-
-	const distMainDir = join(projectRoot, "dist", "main");
-	assertExists(
-		distMainDir,
-		"Main bundle output not found. Run `bun run compile:app` first.",
-	);
-
-	const jsFiles = collectFiles(distMainDir).filter((filePath) =>
-		filePath.endsWith(".js"),
-	);
-	for (const filePath of jsFiles) {
-		const content = readFileSync(filePath, "utf8");
-		const hasDynamicLibsqlRequirePattern = /@libsql\/\$\{target\}/.test(
-			content,
-		);
-		if (
-			hasDynamicLibsqlRequirePattern ||
-			content.includes("commonjsRequire(`@libsql/")
-		) {
-			fail(
-				[
-					"Detected dynamic `@libsql/<platform>` require logic in bundled JS output.",
-					"This indicates libsql internals were bundled instead of externalized.",
-					`Offending file: ${filePath}`,
-				].join("\n"),
-			);
-		}
-	}
-
-	console.log(
-		"[validate:native-runtime] OK: libsql is externalized from main bundle",
-	);
-}
-
 function validateParcelWatcherNotBundled(): void {
 	const sourceMapPath = join(projectRoot, "dist", "main", "index.js.map");
 	assertExists(
@@ -278,33 +227,6 @@ function collectFiles(rootDir: string): string[] {
 	return files;
 }
 
-function getPlatformLibsqlCandidates(): string[] {
-	const targetArch = process.env.TARGET_ARCH || process.arch;
-	const targetPlatform = process.env.TARGET_PLATFORM || process.platform;
-
-	if (targetPlatform === "darwin") {
-		return [
-			targetArch === "arm64" ? "@libsql/darwin-arm64" : "@libsql/darwin-x64",
-		];
-	}
-
-	if (targetPlatform === "linux") {
-		if (targetArch === "arm64") {
-			return ["@libsql/linux-arm64-gnu", "@libsql/linux-arm64-musl"];
-		}
-		if (targetArch === "arm") {
-			return ["@libsql/linux-arm-gnueabihf", "@libsql/linux-arm-musleabihf"];
-		}
-		return ["@libsql/linux-x64-gnu", "@libsql/linux-x64-musl"];
-	}
-
-	if (targetPlatform === "win32") {
-		return ["@libsql/win32-x64-msvc"];
-	}
-
-	return [];
-}
-
 function getPlatformAstGrepCandidates(): string[] {
 	const targetArch = process.env.TARGET_ARCH || process.arch;
 	const targetPlatform = process.env.TARGET_PLATFORM || process.platform;
@@ -340,8 +262,6 @@ function validateNativeModulesPrepared(): void {
 
 	const requiredModules = [
 		"@parcel/watcher/package.json",
-		"libsql/package.json",
-		"@neon-rs/load/package.json",
 		"detect-libc/package.json",
 		"is-glob/package.json",
 		"is-extglob/package.json",
@@ -354,31 +274,6 @@ function validateNativeModulesPrepared(): void {
 			"Required native runtime dependency is missing.",
 		);
 	}
-
-	const platformCandidates = getPlatformLibsqlCandidates();
-	if (platformCandidates.length === 0) {
-		console.warn(
-			`[validate:native-runtime] Skipping platform-specific @libsql check for ${process.platform}/${process.arch}`,
-		);
-		return;
-	}
-
-	const hasPlatformPackage = platformCandidates.some((pkg) =>
-		existsSync(join(nodeModulesDir, pkg, "package.json")),
-	);
-	if (!hasPlatformPackage) {
-		fail(
-			[
-				"Missing platform-specific @libsql package.",
-				`Expected one of: ${platformCandidates.join(", ")}`,
-				"Run `bun run copy:native-modules` and ensure optional dependencies are materialized.",
-			].join("\n"),
-		);
-	}
-
-	console.log(
-		`[validate:native-runtime] OK: platform libsql package present (${platformCandidates.join(" | ")})`,
-	);
 
 	// Validate @ast-grep/napi platform package
 	const astGrepCandidates = getPlatformAstGrepCandidates();
@@ -481,7 +376,6 @@ function validateParcelWatcherPrepared(): void {
 function main(): void {
 	validateWorkspacePackagesBundled();
 	validateOnlyExpectedExternalRequires();
-	validateLibsqlNotBundled();
 	validateParcelWatcherNotBundled();
 	validateNativeModulesPrepared();
 	validateParcelWatcherPrepared();

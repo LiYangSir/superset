@@ -258,24 +258,6 @@
 		-webkit-app-region: no-drag;
 	}
 
-	/* CSS Custom Highlight API for markdown search */
-	::highlight(markdown-search-matches) {
-		background-color: var(--highlight-match);
-	}
-
-	::highlight(markdown-search-active) {
-		background-color: var(--highlight-active);
-	}
-
-	/* CSS Custom Highlight API for chat search */
-	::highlight(chat-search-matches) {
-		background-color: var(--highlight-match);
-	}
-
-	::highlight(chat-search-active) {
-		background-color: var(--highlight-active);
-	}
-
 	/* Disable sonner toast hover animation for update toast only */
 	[data-sonner-toast]:has(.update-toast) {
 		transform: translateY(0);

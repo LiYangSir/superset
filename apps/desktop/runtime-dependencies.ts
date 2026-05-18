@@ -57,15 +57,13 @@ const externalizedRuntimeModules: ExternalizedRuntimeModule[] = [
 		],
 		asarUnpackGlobs: ["**/node_modules/@parcel/watcher*/**/*"],
 	},
+	// Pure-JS dep externalized in vite — must still be materialized into
+	// node_modules/ so packaged Electron's require() can resolve it.
 	{
-		specifier: "libsql",
-		materialize: ["libsql"],
-		packagedCopies: [
-			copyWholeModule("libsql"),
-			copyWholeModule("@libsql"),
-			copyWholeModule("@neon-rs"),
-		],
-		asarUnpackGlobs: ["**/node_modules/@libsql/**/*"],
+		specifier: "drizzle-orm",
+		materialize: ["drizzle-orm"],
+		packagedCopies: [copyWholeModule("drizzle-orm")],
+		asarUnpackGlobs: [],
 	},
 ];
 
@@ -81,11 +79,10 @@ const packagedSupportModules = [
 
 export const mainExternalizedDependencies = [
 	...externalizedRuntimeModules.map((module) => module.specifier),
-	"drizzle-orm",
+	// Subpath imports must be listed explicitly so rollup leaves them
+	// as runtime requires instead of trying to bundle the file.
 	"drizzle-orm/better-sqlite3",
 	"drizzle-orm/better-sqlite3/migrator",
-	"pg",
-	"pg-native",
 ];
 
 export const packagedNodeModuleCopies = [

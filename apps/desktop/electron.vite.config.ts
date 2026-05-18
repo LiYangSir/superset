@@ -143,6 +143,19 @@ export default defineConfig({
 				input: {
 					index: resolve("src/renderer/index.html"),
 				},
+
+				// Silence "use client" / "use server" directive warnings emitted by
+				// libraries built for React Server Components (e.g., @tanstack/react-query).
+				// Electron has no RSC pipeline, so the directives are harmless.
+				onwarn(warning, defaultHandler) {
+					if (
+						warning.code === "MODULE_LEVEL_DIRECTIVE" &&
+						warning.message.includes("use client")
+					) {
+						return;
+					}
+					defaultHandler(warning);
+				},
 			},
 		},
 	},

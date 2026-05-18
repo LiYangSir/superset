@@ -4,8 +4,13 @@ import {
 	useMatchRoute,
 	useNavigate,
 } from "@tanstack/react-router";
+import { useEffect, useRef } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { ResizablePanel } from "renderer/screens/main/components/ResizablePanel";
+import {
+	hasPersistedActiveSpaceId,
+	useSetActiveSpaceId,
+} from "renderer/stores/active-space";
 import { WorkspaceSidebar } from "renderer/screens/main/components/WorkspaceSidebar";
 import { useAppHotkey } from "renderer/stores/hotkeys";
 import { useOpenNewWorkspaceModal } from "renderer/stores/new-workspace-modal";
@@ -24,6 +29,8 @@ export const Route = createFileRoute("/_authenticated/_dashboard")({
 function DashboardLayout() {
 	const navigate = useNavigate();
 	const openNewWorkspaceModal = useOpenNewWorkspaceModal();
+	const setActiveSpaceId = useSetActiveSpaceId();
+	const shouldSyncSpaceFromWorkspaceRef = useRef(!hasPersistedActiveSpaceId());
 	// Get current workspace from route to pre-select project in new workspace modal
 	const matchRoute = useMatchRoute();
 	const currentWorkspaceMatch = matchRoute({
@@ -37,6 +44,13 @@ function DashboardLayout() {
 		{ id: currentWorkspaceId ?? "" },
 		{ enabled: !!currentWorkspaceId },
 	);
+
+	useEffect(() => {
+		if (!shouldSyncSpaceFromWorkspaceRef.current) return;
+		if (!currentWorkspace?.project?.spaceId) return;
+		setActiveSpaceId(currentWorkspace.project.spaceId);
+		shouldSyncSpaceFromWorkspaceRef.current = false;
+	}, [currentWorkspace?.project?.spaceId, setActiveSpaceId]);
 
 	const {
 		isOpen: isWorkspaceSidebarOpen,

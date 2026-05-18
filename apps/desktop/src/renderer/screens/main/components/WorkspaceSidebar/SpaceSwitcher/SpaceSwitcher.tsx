@@ -3,6 +3,7 @@ import { cn } from "@superset/ui/utils";
 import { useEffect } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import {
+	useActiveSpaceHydrated,
 	useActiveSpaceId,
 	useSetActiveSpaceId,
 } from "renderer/stores/active-space";
@@ -15,16 +16,20 @@ export function SpaceSwitcher({ isCollapsed = false }: SpaceSwitcherProps) {
 	const { data: spaces = [] } = electronTrpc.spaces.list.useQuery();
 	const activeSpaceId = useActiveSpaceId();
 	const setActiveSpaceId = useSetActiveSpaceId();
+	const isHydrated = useActiveSpaceHydrated();
 
 	const activeIndex = spaces.findIndex((s) => s.id === activeSpaceId);
 
 	useEffect(() => {
+		// Wait until persist hydration finishes — otherwise we race with
+		// localStorage and overwrite the user's last selection with Default.
+		if (!isHydrated) return;
 		if (spaces.length === 0) return;
 		if (activeIndex === -1) {
 			const fallback = spaces.find((s) => s.isDefault) ?? spaces[0];
 			setActiveSpaceId(fallback.id);
 		}
-	}, [spaces, activeIndex, setActiveSpaceId]);
+	}, [isHydrated, spaces, activeIndex, setActiveSpaceId]);
 
 	if (spaces.length === 0) return null;
 

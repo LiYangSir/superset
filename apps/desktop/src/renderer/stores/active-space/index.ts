@@ -1,4 +1,6 @@
 export {
+	hasPersistedActiveSpaceId,
+	useActiveSpaceHydrated,
 	useActiveSpaceId,
 	useActiveSpaceStore,
 	useSetActiveSpaceId,
