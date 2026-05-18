@@ -18,7 +18,6 @@ import {
 } from "renderer/stores/tabs/utils";
 import { useTheme } from "renderer/stores/theme";
 import { BrowserPane } from "./BrowserPane";
-import { ChatMastraPane } from "./ChatMastraPane";
 import { MosaicSplitOverlay } from "./components";
 import { DevToolsPane } from "./DevToolsPane";
 import { FileViewerPane } from "./FileViewerPane";
@@ -160,26 +159,6 @@ export function TabView({ tab }: TabViewProps) {
 						path={path}
 						tabId={tab.id}
 						worktreePath={worktreePath}
-						splitPaneAuto={splitPaneAuto}
-						splitPaneHorizontal={splitPaneHorizontal}
-						splitPaneVertical={splitPaneVertical}
-						removePane={removePane}
-						setFocusedPane={setFocusedPane}
-						availableTabs={workspaceTabs}
-						onMoveToTab={(targetTabId) => movePaneToTab(paneId, targetTabId)}
-						onMoveToNewTab={() => movePaneToNewTab(paneId)}
-					/>
-				);
-			}
-
-			// Route chat panes to ChatMastraPane component
-			if (paneInfo.type === "chat-mastra") {
-				return (
-					<ChatMastraPane
-						paneId={paneId}
-						path={path}
-						tabId={tab.id}
-						workspaceId={tab.workspaceId}
 						splitPaneAuto={splitPaneAuto}
 						splitPaneHorizontal={splitPaneHorizontal}
 						splitPaneVertical={splitPaneVertical}

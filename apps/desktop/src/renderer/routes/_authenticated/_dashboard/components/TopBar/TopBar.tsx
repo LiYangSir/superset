@@ -5,7 +5,6 @@ import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getWorkspaceDisplayName } from "renderer/lib/getWorkspaceDisplayName";
 import { NavigationControls } from "./components/NavigationControls";
 import { OpenInMenuButton } from "./components/OpenInMenuButton";
-import { OrganizationDropdown } from "./components/OrganizationDropdown";
 import { ResourceConsumption } from "./components/ResourceConsumption";
 import { SearchBarTrigger } from "./components/SearchBarTrigger";
 import { SidebarToggle } from "./components/SidebarToggle";
@@ -67,7 +66,6 @@ export function TopBar() {
 						projectId={workspace.project?.id}
 					/>
 				)}
-				<OrganizationDropdown />
 				{!isMac && <WindowControls />}
 			</div>
 		</div>

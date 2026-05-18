@@ -10,12 +10,6 @@ import {
 	type HotkeyId,
 	toElectronAccelerator,
 } from "shared/hotkeys";
-import {
-	checkForUpdatesInteractive,
-	simulateDownloading,
-	simulateError,
-	simulateUpdateReady,
-} from "./auto-updater";
 import { menuEmitter } from "./menu-events";
 
 let isHotkeyListenerRegistered = false;
@@ -136,19 +130,6 @@ export function createApplicationMenu() {
 							});
 					},
 				},
-				{ type: "separator" },
-				{
-					label: "Simulate Update Downloading",
-					click: () => simulateDownloading(),
-				},
-				{
-					label: "Simulate Update Ready",
-					click: () => simulateUpdateReady(),
-				},
-				{
-					label: "Simulate Update Error",
-					click: () => simulateError(),
-				},
 			],
 		});
 	}
@@ -164,12 +145,6 @@ export function createApplicationMenu() {
 					accelerator: openSettingsAccelerator,
 					click: () => {
 						menuEmitter.emit("open-settings");
-					},
-				},
-				{
-					label: "Check for Updates...",
-					click: () => {
-						checkForUpdatesInteractive();
 					},
 				},
 				{ type: "separator" },

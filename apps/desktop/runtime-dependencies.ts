@@ -81,6 +81,10 @@ const packagedSupportModules = [
 
 export const mainExternalizedDependencies = [
 	...externalizedRuntimeModules.map((module) => module.specifier),
+	"drizzle-orm",
+	"drizzle-orm/better-sqlite3",
+	"drizzle-orm/better-sqlite3/migrator",
+	"pg",
 	"pg-native",
 ];
 

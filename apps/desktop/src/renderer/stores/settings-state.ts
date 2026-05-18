@@ -34,7 +34,7 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>()(
 	devtools(
 		(set) => ({
-			activeSection: "account",
+			activeSection: "appearance",
 			activeProjectId: null,
 			searchQuery: "",
 			isOpen: false,
@@ -52,7 +52,7 @@ export const useSettingsStore = create<SettingsState>()(
 			openSettings: (section) =>
 				set({
 					isOpen: true,
-					activeSection: section ?? "account",
+					activeSection: section ?? "appearance",
 				}),
 
 			closeSettings: () =>

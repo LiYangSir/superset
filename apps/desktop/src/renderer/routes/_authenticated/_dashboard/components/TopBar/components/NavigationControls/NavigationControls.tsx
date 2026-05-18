@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { LuArrowLeft, LuArrowRight } from "react-icons/lu";
 import { HotkeyTooltipContent } from "renderer/components/HotkeyTooltipContent";
 import { useAppHotkey } from "renderer/stores/hotkeys";
-import { HistoryDropdown } from "./components/HistoryDropdown";
 
 export function NavigationControls() {
 	const router = useRouter();
@@ -68,7 +67,6 @@ export function NavigationControls() {
 				</TooltipContent>
 			</Tooltip>
 
-			<HistoryDropdown />
 		</div>
 	);
 }

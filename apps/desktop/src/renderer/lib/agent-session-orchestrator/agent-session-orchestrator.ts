@@ -5,7 +5,6 @@ import type {
 import { normalizeAgentLaunchRequest } from "@superset/shared/agent-launch";
 import { posthog } from "renderer/lib/posthog";
 import { useWorkspaceInitStore } from "renderer/stores/workspace-init";
-import { launchChatAdapter } from "./adapters/chat-adapter";
 import { launchTerminalAdapter } from "./adapters/terminal-adapter";
 import type {
 	AgentLaunchTabsAdapter,
@@ -132,10 +131,7 @@ export async function launchAgentSession(
 				tabs,
 			};
 			phase = "launching";
-			const payload =
-				request.kind === "terminal"
-					? await launchTerminalAdapter(request, executionContext)
-					: await launchChatAdapter(request, executionContext);
+			const payload = await launchTerminalAdapter(request, executionContext);
 			phase = "running";
 			const result: AgentLaunchResult = {
 				workspaceId: request.workspaceId,

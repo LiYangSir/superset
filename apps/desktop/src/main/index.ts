@@ -11,10 +11,6 @@ import {
 	session,
 } from "electron";
 import { makeAppSetup } from "lib/electron-app/factories/app/setup";
-import {
-	handleAuthCallback,
-	parseAuthDeepLink,
-} from "lib/trpc/routers/auth/utils/auth-functions";
 import { applyShellEnvToProcess } from "lib/trpc/routers/workspaces/utils/shell-env";
 import {
 	DEFAULT_CONFIRM_ON_QUIT,
@@ -24,15 +20,11 @@ import {
 import { setupAgentHooks } from "./lib/agent-setup";
 import { initAppState } from "./lib/app-state";
 import { requestAppleEventsAccess } from "./lib/apple-events-permission";
-import { setupAutoUpdater } from "./lib/auto-updater";
 import { resolveDevWorkspaceName } from "./lib/dev-workspace-name";
 import { setWorkspaceDockIcon } from "./lib/dock-icon";
 import { loadWebviewBrowserExtension } from "./lib/extensions";
-import { getHostServiceManager } from "./lib/host-service-manager";
 import { localDb } from "./lib/local-db";
-import { outlit } from "./lib/outlit";
 import { ensureProjectIconsDir, getProjectIconPath } from "./lib/project-icons";
-import { initSentry } from "./lib/sentry";
 import {
 	prewarmTerminalRuntime,
 	reconcileDaemonSessions,
@@ -69,18 +61,7 @@ if (process.defaultApp) {
 async function processDeepLink(url: string): Promise<void> {
 	console.log("[main] Processing deep link:", url);
 
-	const authParams = parseAuthDeepLink(url);
-	if (authParams) {
-		const result = await handleAuthCallback(authParams);
-		if (result.success) {
-			focusMainWindow();
-		} else {
-			console.error("[main] Auth deep link failed:", result.error);
-		}
-		return;
-	}
-
-	// Non-auth deep links: extract path and navigate in renderer
+	// Deep links: extract path and navigate in renderer
 	// e.g. superset://tasks/my-slug -> /tasks/my-slug
 	const path = `/${url.split("://")[1]}`;
 	focusMainWindow();
@@ -198,8 +179,6 @@ app.on("before-quit", async (event) => {
 	// Quit confirmed or no confirmation needed - exit immediately
 	// Let OS clean up child processes, tray, etc.
 	isQuitting = true;
-	await outlit.shutdown();
-	getHostServiceManager().stopAll();
 	disposeTray();
 	app.exit(0);
 });
@@ -223,26 +202,6 @@ if (process.env.NODE_ENV === "development") {
 
 	process.on("SIGTERM", () => handleTerminationSignal("SIGTERM"));
 	process.on("SIGINT", () => handleTerminationSignal("SIGINT"));
-
-	// Fallback: electron-vite may exit without signaling the child Electron process
-	const parentPid = process.ppid;
-	const isParentAlive = (): boolean => {
-		try {
-			process.kill(parentPid, 0);
-			return true;
-		} catch {
-			return false;
-		}
-	};
-
-	const parentCheckInterval = setInterval(() => {
-		if (!isParentAlive()) {
-			console.log("[main] Parent process exited, quitting...");
-			clearInterval(parentCheckInterval);
-			app.exit(0);
-		}
-	}, 1000);
-	parentCheckInterval.unref();
 }
 
 protocol.registerSchemesAsPrivileged([
@@ -257,11 +216,9 @@ protocol.registerSchemesAsPrivileged([
 	},
 ]);
 
-const gotTheLock = app.requestSingleInstanceLock();
+app.requestSingleInstanceLock();
 
-if (!gotTheLock) {
-	app.exit(0);
-} else {
+{
 	// Windows/Linux: protocol URL arrives as argv on the second instance
 	app.on("second-instance", async (_event, argv) => {
 		focusMainWindow();
@@ -293,7 +250,6 @@ if (!gotTheLock) {
 
 		ensureProjectIconsDir();
 		setWorkspaceDockIcon();
-		initSentry();
 		await initAppState();
 
 		await loadWebviewBrowserExtension();
@@ -309,7 +265,6 @@ if (!gotTheLock) {
 		}
 
 		await makeAppSetup(() => MainWindow());
-		setupAutoUpdater();
 		initTray();
 
 		// Process any deep links from cold start

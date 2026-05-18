@@ -1,30 +1,16 @@
-import posthogFull from "posthog-js/dist/module.full.no-external";
-import type { PostHog } from "posthog-js/react";
-import { env } from "../env.renderer";
+// Local-first stub: analytics removed from desktop. Keeps the
+// `posthog.capture(...)` and related call sites compiling as no-ops.
 
-// Cast to standard PostHog type for compatibility with posthog-js/react
-export const posthog = posthogFull as unknown as PostHog;
+type Properties = Record<string, unknown> | undefined;
 
-export function initPostHog() {
-	if (!env.NEXT_PUBLIC_POSTHOG_KEY) {
-		console.log("[posthog] No key configured, skipping");
-		return;
-	}
-
-	posthogFull.init(env.NEXT_PUBLIC_POSTHOG_KEY, {
-		api_host: env.NEXT_PUBLIC_POSTHOG_HOST,
-		defaults: "2025-11-30",
-		capture_pageview: false,
-		capture_pageleave: false,
-		capture_exceptions: true,
-		person_profiles: "identified_only",
-		persistence: "localStorage",
-		debug: false,
-		loaded: (ph) => {
-			ph.register({
-				app_name: "desktop",
-				platform: window.navigator.platform,
-			});
-		},
-	});
-}
+export const posthog = {
+	capture: (_event: string, _properties?: Properties) => {},
+	identify: (_id: string, _properties?: Properties) => {},
+	reset: () => {},
+	reloadFeatureFlags: () => {},
+	opt_in_capturing: () => {},
+	opt_out_capturing: () => {},
+	isFeatureEnabled: (_flag: string) => false,
+	getFeatureFlag: (_flag: string) => false,
+	onFeatureFlags: (_cb: (flags: string[]) => void) => () => {},
+};
