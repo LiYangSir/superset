@@ -2,6 +2,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
+import { useActiveSpaceId } from "renderer/stores/active-space";
 import { useAppHotkey } from "renderer/stores/hotkeys";
 
 /**
@@ -11,8 +12,10 @@ import { useAppHotkey } from "renderer/stores/hotkeys";
  * Handles ⌘1-9 workspace switching shortcuts (global).
  */
 export function useWorkspaceShortcuts() {
-	const { data: groups = [] } =
-		electronTrpc.workspaces.getAllGrouped.useQuery();
+	const activeSpaceId = useActiveSpaceId();
+	const { data: groups = [] } = electronTrpc.workspaces.getAllGrouped.useQuery(
+		activeSpaceId ? { spaceId: activeSpaceId } : undefined,
+	);
 	const navigate = useNavigate();
 
 	const allWorkspaces = groups.flatMap((group) => {

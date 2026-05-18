@@ -2,8 +2,10 @@ import { randomUUID } from "node:crypto";
 import { chmodSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import * as schema from "@superset/local-db";
+import { projects, spaces } from "@superset/local-db";
 
 import Database from "better-sqlite3";
+import { eq, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { app } from "electron";
@@ -102,5 +104,39 @@ try {
 }
 
 console.log("[local-db] Migrations complete");
+
+// Idempotent: ensure a Default Space exists and every project has a spaceId.
+// Runs after migrate() so the spaces table is guaranteed to exist.
+try {
+	let defaultSpace = localDb
+		.select()
+		.from(spaces)
+		.where(eq(spaces.isDefault, true))
+		.get();
+	if (!defaultSpace) {
+		defaultSpace = localDb
+			.insert(spaces)
+			.values({
+				name: "Default",
+				color: "#6b7280",
+				isDefault: true,
+			})
+			.returning()
+			.get();
+		console.log("[local-db] Seeded Default Space");
+	}
+	const result = localDb
+		.update(projects)
+		.set({ spaceId: defaultSpace.id })
+		.where(isNull(projects.spaceId))
+		.run();
+	if (result.changes > 0) {
+		console.log(
+			`[local-db] Backfilled ${result.changes} projects into Default Space`,
+		);
+	}
+} catch (error) {
+	console.error("[local-db] Default Space seed failed:", error);
+}
 
 export type LocalDb = typeof localDb;

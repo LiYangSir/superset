@@ -5,7 +5,7 @@ import {
 	worktrees,
 } from "@superset/local-db";
 import { TRPCError } from "@trpc/server";
-import { eq, isNotNull, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { localDb } from "main/lib/local-db";
 import { z } from "zod";
 import { publicProcedure, router } from "../../..";
@@ -93,7 +93,10 @@ export const createQueryProcedures = () => {
 				.sort((a, b) => a.tabOrder - b.tabOrder);
 		}),
 
-		getAllGrouped: publicProcedure.query(() => {
+		getAllGrouped: publicProcedure
+			.input(z.object({ spaceId: z.string().optional() }).optional())
+			.query(({ input }) => {
+				const spaceId = input?.spaceId;
 			type WorkspaceItem = {
 				id: string;
 				projectId: string;
@@ -130,7 +133,11 @@ export const createQueryProcedures = () => {
 			const activeProjects = localDb
 				.select()
 				.from(projects)
-				.where(isNotNull(projects.tabOrder))
+				.where(
+					spaceId
+						? and(isNotNull(projects.tabOrder), eq(projects.spaceId, spaceId))
+						: isNotNull(projects.tabOrder),
+				)
 				.all();
 
 			const allWorktrees = localDb.select().from(worktrees).all();

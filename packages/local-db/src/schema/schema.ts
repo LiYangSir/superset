@@ -13,6 +13,29 @@ import type {
 } from "./zod";
 
 /**
+ * Spaces - top-level groupings of projects shown in the sidebar.
+ * One built-in `isDefault: true` row exists; new projects join it on creation.
+ * A non-Default Space can only be deleted when no projects reference it
+ * (enforced by `onDelete: "restrict"` on projects.spaceId).
+ */
+export const spaces = sqliteTable("spaces", {
+	id: text("id")
+		.primaryKey()
+		.$defaultFn(() => uuidv4()),
+	name: text("name").notNull(),
+	color: text("color").notNull(),
+	isDefault: integer("is_default", { mode: "boolean" })
+		.notNull()
+		.default(false),
+	createdAt: integer("created_at")
+		.notNull()
+		.$defaultFn(() => Date.now()),
+});
+
+export type InsertSpace = typeof spaces.$inferInsert;
+export type SelectSpace = typeof spaces.$inferSelect;
+
+/**
  * Projects table - represents a git repository that the user has opened
  */
 export const projects = sqliteTable(
@@ -44,10 +67,14 @@ export const projects = sqliteTable(
 		iconUrl: text("icon_url"),
 		neonProjectId: text("neon_project_id"),
 		defaultApp: text("default_app").$type<ExternalApp>(),
+		spaceId: text("space_id").references(() => spaces.id, {
+			onDelete: "restrict",
+		}),
 	},
 	(table) => [
 		index("projects_main_repo_path_idx").on(table.mainRepoPath),
 		index("projects_last_opened_at_idx").on(table.lastOpenedAt),
+		index("projects_space_id_idx").on(table.spaceId),
 	],
 );
 

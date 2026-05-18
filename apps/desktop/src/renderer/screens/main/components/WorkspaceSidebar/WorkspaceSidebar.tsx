@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { useWorkspaceShortcuts } from "renderer/hooks/useWorkspaceShortcuts";
 import { useWorkspaceSelectionStore } from "renderer/stores/workspace-selection";
+import { ActiveSpaceLabel } from "./ActiveSpaceLabel";
 import { MultiDragPreview } from "./MultiDragPreview";
 import { PortsList } from "./PortsList";
 import { ProjectSection } from "./ProjectSection";
@@ -78,6 +79,7 @@ export function WorkspaceSidebar({
 				className="flex-1 overflow-y-auto hide-scrollbar"
 				onMouseDown={handleSidebarMouseDown}
 			>
+				<ActiveSpaceLabel isCollapsed={isCollapsed} />
 				{groups.map((group, index) => (
 					<ProjectSection
 						key={group.project.id}

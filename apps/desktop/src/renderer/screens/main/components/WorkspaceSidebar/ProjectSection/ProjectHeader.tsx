@@ -18,6 +18,7 @@ import {
 	LuFolderOpen,
 	LuImage,
 	LuImageOff,
+	LuLayers,
 	LuListPlus,
 	LuPalette,
 	LuPencil,
@@ -195,6 +196,40 @@ export function ProjectHeader({
 		</ContextMenuSub>
 	);
 
+	const { data: project } = electronTrpc.projects.get.useQuery({
+		id: projectId,
+	});
+	const { data: spaces = [] } = electronTrpc.spaces.list.useQuery();
+	const handleMoveToSpace = (spaceId: string) => {
+		updateProject.mutate({ id: projectId, patch: { spaceId } });
+	};
+	const moveToSpaceSubmenu = (
+		<ContextMenuSub>
+			<ContextMenuSubTrigger>
+				<LuLayers className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
+				Move to Space
+			</ContextMenuSubTrigger>
+			<ContextMenuSubContent className="w-44">
+				{spaces.map((space) => (
+					<ContextMenuItem
+						key={space.id}
+						onSelect={() => handleMoveToSpace(space.id)}
+						className="flex items-center gap-2"
+					>
+						<span
+							className="size-2.5 rounded-full"
+							style={{ backgroundColor: space.color }}
+						/>
+						<span>{space.name}</span>
+						{project?.spaceId === space.id && (
+							<span className="ml-auto text-xs text-muted-foreground">✓</span>
+						)}
+					</ContextMenuItem>
+				))}
+			</ContextMenuSubContent>
+		</ContextMenuSub>
+	);
+
 	if (isSidebarCollapsed) {
 		return (
 			<>
@@ -246,6 +281,7 @@ export function ProjectHeader({
 							Project Settings
 						</ContextMenuItem>
 						{colorPickerSubmenu}
+						{moveToSpaceSubmenu}
 						<ContextMenuItem onSelect={handleNewSection}>
 							<LuListPlus className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
 							New Section
@@ -376,6 +412,7 @@ export function ProjectHeader({
 						Project Settings
 					</ContextMenuItem>
 					{colorPickerSubmenu}
+					{moveToSpaceSubmenu}
 					<ContextMenuItem onSelect={handleToggleImage}>
 						{hideImage ? (
 							<LuImage className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />

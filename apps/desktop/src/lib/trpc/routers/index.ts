@@ -17,6 +17,7 @@ import { createProjectsRouter } from "./projects";
 import { createResourceMetricsRouter } from "./resource-metrics";
 import { createRingtoneRouter } from "./ringtone";
 import { createSettingsRouter } from "./settings";
+import { createSpacesRouter } from "./spaces";
 import { createTerminalRouter } from "./terminal";
 import { createUiStateRouter } from "./ui-state";
 import { createWindowRouter } from "./window";
@@ -42,6 +43,7 @@ export const createAppRouter = (getWindow: () => BrowserWindow | null) => {
 		hotkeys: createHotkeysRouter(getWindow),
 		external: createExternalRouter(),
 		settings: createSettingsRouter(),
+		spaces: createSpacesRouter(),
 		config: createConfigRouter(),
 		uiState: createUiStateRouter(),
 		ringtone: createRingtoneRouter(getWindow),

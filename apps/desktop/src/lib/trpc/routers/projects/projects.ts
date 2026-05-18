@@ -7,6 +7,7 @@ import {
 	projects,
 	type SelectProject,
 	settings,
+	spaces,
 	workspaces,
 } from "@superset/local-db";
 import { TRPCError } from "@trpc/server";
@@ -96,6 +97,14 @@ async function initGitRepo(path: string): Promise<{ defaultBranch: string }> {
 	return { defaultBranch };
 }
 
+function getDefaultSpaceId(): string | undefined {
+	return localDb
+		.select({ id: spaces.id })
+		.from(spaces)
+		.where(eq(spaces.isDefault, true))
+		.get()?.id;
+}
+
 function upsertProject(mainRepoPath: string, defaultBranch: string): Project {
 	const name = basename(mainRepoPath);
 
@@ -121,6 +130,7 @@ function upsertProject(mainRepoPath: string, defaultBranch: string): Project {
 			name,
 			color: getDefaultProjectColor(),
 			defaultBranch,
+			spaceId: getDefaultSpaceId(),
 		})
 		.returning()
 		.get();
@@ -902,6 +912,7 @@ export const createProjectsRouter = (getWindow: () => BrowserWindow | null) => {
 							name,
 							color: getDefaultProjectColor(),
 							defaultBranch,
+							spaceId: getDefaultSpaceId(),
 						})
 						.returning()
 						.get();
@@ -1010,6 +1021,7 @@ export const createProjectsRouter = (getWindow: () => BrowserWindow | null) => {
 						worktreeBaseDir: z.string().nullable().optional(),
 						hideImage: z.boolean().optional(),
 						defaultApp: z.enum(EXTERNAL_APPS).nullable().optional(),
+						spaceId: z.string().optional(),
 					}),
 				}),
 			)
@@ -1047,6 +1059,9 @@ export const createProjectsRouter = (getWindow: () => BrowserWindow | null) => {
 						}),
 						...(input.patch.defaultApp !== undefined && {
 							defaultApp: input.patch.defaultApp,
+						}),
+						...(input.patch.spaceId !== undefined && {
+							spaceId: input.patch.spaceId,
 						}),
 						lastOpenedAt: Date.now(),
 					})
