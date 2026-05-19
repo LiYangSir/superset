@@ -2,6 +2,7 @@ import { Spinner } from "@superset/ui/spinner";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { StartView } from "renderer/screens/main/components/StartView";
 import { useSetActiveSpaceId } from "renderer/stores/active-space";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/workspace/")({
@@ -42,11 +43,7 @@ function WorkspaceIndexPage() {
 
 	useEffect(() => {
 		if (isLoading || !workspaces) return;
-
-		if (workspaceEntries.length === 0) {
-			navigate({ to: "/welcome", replace: true });
-			return;
-		}
+		if (workspaceEntries.length === 0) return;
 
 		const lastViewedId = localStorage.getItem("lastViewedWorkspaceId");
 		const targetEntry =
@@ -66,7 +63,7 @@ function WorkspaceIndexPage() {
 	}, [workspaces, isLoading, navigate, workspaceEntries, setActiveSpaceId]);
 
 	if (hasNoWorkspaces) {
-		return <LoadingSpinner />;
+		return <StartView />;
 	}
 
 	return <LoadingSpinner />;

@@ -1,5 +1,4 @@
 import { cn } from "@superset/ui/utils";
-import { useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { LuFolderPlus, LuLoader, LuX } from "react-icons/lu";
@@ -11,7 +10,6 @@ interface SidebarDropZoneProps {
 }
 
 export function SidebarDropZone({ children, className }: SidebarDropZoneProps) {
-	const navigate = useNavigate();
 	const [isDragOver, setIsDragOver] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -95,18 +93,12 @@ export function SidebarDropZone({ children, className }: SidebarDropZoneProps) {
 			}
 
 			try {
-				const project = await openFromPath(filePath);
-				if (project) {
-					navigate({
-						to: "/project/$projectId",
-						params: { projectId: project.id },
-					});
-				}
+				await openFromPath(filePath);
 			} catch (err) {
 				setError(err instanceof Error ? err.message : "Failed to open project");
 			}
 		},
-		[openFromPath, isPending, navigate],
+		[openFromPath, isPending],
 	);
 
 	return (

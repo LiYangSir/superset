@@ -1,13 +1,9 @@
-import { Button } from "@superset/ui/button";
 import { cn } from "@superset/ui/utils";
-import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
-import { LuFolderOpen, LuPlus, LuX } from "react-icons/lu";
+import { LuFolderOpen, LuX } from "react-icons/lu";
 import { useOpenProject } from "renderer/react-query/projects";
-import { SupersetLogo } from "renderer/routes/sign-in/components/SupersetLogo";
 
 export function StartView() {
-	const navigate = useNavigate();
 	const { openNew, openFromPath, isPending } = useOpenProject();
 	const [error, setError] = useState<string | null>(null);
 	const [isDragOver, setIsDragOver] = useState(false);
@@ -35,15 +31,7 @@ export function StartView() {
 		if (isDragOver) return;
 		setError(null);
 		try {
-			const projects = await openNew();
-			const firstProjectId = projects[0]?.id;
-			if (firstProjectId) {
-				navigate({
-					to: "/project/$projectId",
-					params: { projectId: firstProjectId },
-					replace: true,
-				});
-			}
+			await openNew();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to open project");
 		}
@@ -104,19 +92,12 @@ export function StartView() {
 			}
 
 			try {
-				const project = await openFromPath(filePath);
-				if (project) {
-					navigate({
-						to: "/project/$projectId",
-						params: { projectId: project.id },
-						replace: true,
-					});
-				}
+				await openFromPath(filePath);
 			} catch (err) {
 				setError(err instanceof Error ? err.message : "Failed to open project");
 			}
 		},
-		[isPending, openFromPath, navigate],
+		[isPending, openFromPath],
 	);
 
 	return (
@@ -129,13 +110,6 @@ export function StartView() {
 				onDrop={handleDrop}
 			>
 				<div className="flex flex-col items-center w-full max-w-md px-6">
-					<SupersetLogo
-						className={cn(
-							"h-8 w-auto mb-12 transition-opacity duration-200 opacity-80",
-							isDragOver && "opacity-0",
-						)}
-					/>
-
 					<div className="w-full flex flex-col gap-4">
 						<div>
 							<button
@@ -172,27 +146,6 @@ export function StartView() {
 									</div>
 								)}
 							</button>
-						</div>
-
-						<div
-							className={cn(
-								"flex items-center justify-center gap-2 transition-opacity pt-2",
-								isDragOver && "opacity-0",
-							)}
-						>
-							<span className="text-sm text-muted-foreground">
-								Or start a new project
-							</span>
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={() => navigate({ to: "/new-project", replace: true })}
-								disabled={isPending}
-								className="text-sm"
-							>
-								<LuPlus className="size-3.5" />
-								New Project
-							</Button>
 						</div>
 					</div>
 
