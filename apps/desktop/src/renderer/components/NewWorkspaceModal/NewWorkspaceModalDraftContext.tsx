@@ -18,6 +18,8 @@ export interface NewWorkspaceModalDraft {
 	activeTab: NewWorkspaceModalTab;
 	selectedProjectId: string | null;
 	prompt: string;
+	workspaceName: string;
+	workspaceNameEdited: boolean;
 	branchName: string;
 	branchNameEdited: boolean;
 	baseBranch: string | null;
@@ -37,6 +39,8 @@ const initialDraft: NewWorkspaceModalDraft = {
 	activeTab: "prompt",
 	selectedProjectId: null,
 	prompt: "",
+	workspaceName: "",
+	workspaceNameEdited: false,
 	branchName: "",
 	branchNameEdited: false,
 	baseBranch: null,
@@ -140,6 +144,8 @@ export function NewWorkspaceModalDraftProvider({
 				activeTab: state.activeTab,
 				selectedProjectId: state.selectedProjectId,
 				prompt: state.prompt,
+				workspaceName: state.workspaceName,
+				workspaceNameEdited: state.workspaceNameEdited,
 				branchName: state.branchName,
 				branchNameEdited: state.branchNameEdited,
 				baseBranch: state.baseBranch,
