@@ -459,6 +459,18 @@ export const HOTKEYS = {
 		label: "Next Workspace",
 		category: "Workspace",
 	}),
+	PREV_SPACE: defineHotkey({
+		keys: "ctrl+meta+left",
+		label: "Previous Space",
+		category: "Navigation",
+		description: "Switch to the previous space",
+	}),
+	NEXT_SPACE: defineHotkey({
+		keys: "ctrl+meta+right",
+		label: "Next Space",
+		category: "Navigation",
+		description: "Switch to the next space",
+	}),
 
 	// Layout
 	TOGGLE_SIDEBAR: defineHotkey({

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useActiveSpaceId } from "renderer/stores/active-space";
 import { useNewWorkspaceModalDraft } from "../../NewWorkspaceModalDraftContext";
 import { PromptGroup } from "../PromptGroup";
 
@@ -17,6 +18,7 @@ export function NewWorkspaceModalContent({
 	onNewProject,
 }: NewWorkspaceModalContentProps) {
 	const { draft, updateDraft } = useNewWorkspaceModalDraft();
+	const activeSpaceId = useActiveSpaceId();
 	const { data: recentProjects = [], isFetched: areRecentProjectsFetched } =
 		electronTrpc.projects.getRecents.useQuery();
 	const utils = electronTrpc.useUtils();
@@ -56,9 +58,15 @@ export function NewWorkspaceModalContent({
 		const hasSelectedProject = recentProjects.some(
 			(project) => project.id === draft.selectedProjectId,
 		);
-		const fallbackProjectId = recentProjects[0]?.id ?? null;
-		if (!hasSelectedProject && fallbackProjectId !== draft.selectedProjectId) {
-			updateDraft({ selectedProjectId: fallbackProjectId });
+		if (!hasSelectedProject) {
+			const spaceProjects = activeSpaceId
+				? recentProjects.filter((p) => p.spaceId === activeSpaceId)
+				: [];
+			const fallbackProjectId =
+				(spaceProjects[0]?.id ?? recentProjects[0]?.id) ?? null;
+			if (fallbackProjectId !== draft.selectedProjectId) {
+				updateDraft({ selectedProjectId: fallbackProjectId });
+			}
 		}
 	}, [
 		draft.selectedProjectId,
@@ -66,6 +74,7 @@ export function NewWorkspaceModalContent({
 		isOpen,
 		preSelectedProjectId,
 		recentProjects,
+		activeSpaceId,
 		updateDraft,
 	]);
 
