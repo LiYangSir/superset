@@ -19,6 +19,7 @@ import { createSpacesRouter } from "./spaces";
 import { createTerminalRouter } from "./terminal";
 import { createUiStateRouter } from "./ui-state";
 import { createWindowRouter } from "./window";
+import { createTasksRouter } from "./tasks";
 import { createWorkspacesRouter } from "./workspaces";
 
 export const createAppRouter = (getWindow: () => BrowserWindow | null) => {
@@ -40,6 +41,7 @@ export const createAppRouter = (getWindow: () => BrowserWindow | null) => {
 		external: createExternalRouter(),
 		settings: createSettingsRouter(),
 		spaces: createSpacesRouter(),
+		tasks: createTasksRouter(),
 		config: createConfigRouter(),
 		uiState: createUiStateRouter(),
 		ringtone: createRingtoneRouter(getWindow),

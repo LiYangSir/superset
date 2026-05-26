@@ -360,6 +360,7 @@ export const tasks = sqliteTable(
 		started_at: text("started_at"),
 		completed_at: text("completed_at"),
 		deleted_at: text("deleted_at"),
+		archived_at: text("archived_at"),
 		created_at: text("created_at").notNull(),
 		updated_at: text("updated_at").notNull(),
 	},
@@ -400,3 +401,87 @@ export const browserHistory = sqliteTable(
 
 export type InsertBrowserHistory = typeof browserHistory.$inferInsert;
 export type SelectBrowserHistory = typeof browserHistory.$inferSelect;
+
+// =============================================================================
+// Task management local tables
+// =============================================================================
+
+export type TaskStatus =
+	| "backlog"
+	| "todo"
+	| "in_progress"
+	| "in_review"
+	| "done"
+	| "cancelled";
+
+/**
+ * Task subtasks - local-only, linked to cloud-synced tasks
+ */
+export const taskSubtasks = sqliteTable(
+	"task_subtasks",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => uuidv4()),
+		taskId: text("task_id")
+			.notNull()
+			.references(() => tasks.id, { onDelete: "cascade" }),
+		title: text("title").notNull(),
+		done: integer("done", { mode: "boolean" }).notNull().default(false),
+		sortOrder: integer("sort_order").notNull().default(0),
+		createdAt: integer("created_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+	},
+	(table) => [index("task_subtasks_task_id_idx").on(table.taskId)],
+);
+
+export type InsertTaskSubtask = typeof taskSubtasks.$inferInsert;
+export type SelectTaskSubtask = typeof taskSubtasks.$inferSelect;
+
+/**
+ * Task labels - local-only label definitions scoped to an organization
+ */
+export const taskLabels = sqliteTable(
+	"task_labels",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => uuidv4()),
+		name: text("name").notNull(),
+		color: text("color").notNull(),
+		organizationId: text("organization_id").notNull(),
+		sortOrder: integer("sort_order").notNull().default(0),
+		createdAt: integer("created_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+	},
+	(table) => [index("task_labels_org_id_idx").on(table.organizationId)],
+);
+
+export type InsertTaskLabel = typeof taskLabels.$inferInsert;
+export type SelectTaskLabel = typeof taskLabels.$inferSelect;
+
+/**
+ * Task comments - local-only comments on tasks
+ */
+export const taskComments = sqliteTable(
+	"task_comments",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => uuidv4()),
+		taskId: text("task_id")
+			.notNull()
+			.references(() => tasks.id, { onDelete: "cascade" }),
+		author: text("author").notNull(),
+		text: text("text").notNull(),
+		createdAt: integer("created_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+	},
+	(table) => [index("task_comments_task_id_idx").on(table.taskId)],
+);
+
+export type InsertTaskComment = typeof taskComments.$inferInsert;
+export type SelectTaskComment = typeof taskComments.$inferSelect;

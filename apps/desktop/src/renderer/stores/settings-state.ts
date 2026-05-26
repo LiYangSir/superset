@@ -17,6 +17,7 @@ export type SettingsSection =
 	| "apikeys"
 	| "permissions"
 	| "spaces"
+	| "tasks"
 	| "project";
 
 interface SettingsState {

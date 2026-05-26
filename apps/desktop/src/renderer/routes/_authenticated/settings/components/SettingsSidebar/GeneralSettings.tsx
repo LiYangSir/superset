@@ -7,7 +7,7 @@ import {
 	HiOutlineShieldCheck,
 	HiOutlineSparkles,
 } from "react-icons/hi2";
-import { LuGitBranch, LuKeyboard, LuLayers } from "react-icons/lu";
+import { LuGitBranch, LuKeyboard, LuLayers, LuListTodo } from "react-icons/lu";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import type { SettingsSection } from "renderer/stores/settings-state";
 
@@ -23,6 +23,7 @@ type SettingsRoute =
 	| "/settings/git"
 	| "/settings/terminal"
 	| "/settings/spaces"
+	| "/settings/tasks"
 	| "/settings/permissions";
 
 interface SectionItem {
@@ -88,6 +89,12 @@ const SECTION_GROUPS: SectionGroup[] = [
 				section: "spaces",
 				label: "Spaces",
 				icon: <LuLayers className="h-4 w-4" />,
+			},
+			{
+				id: "/settings/tasks",
+				section: "tasks",
+				label: "Tasks",
+				icon: <LuListTodo className="h-4 w-4" />,
 			},
 		],
 	},

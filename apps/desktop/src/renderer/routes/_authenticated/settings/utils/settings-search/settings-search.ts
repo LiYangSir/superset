@@ -58,6 +58,9 @@ export const SETTING_ITEM_ID = {
 	API_KEYS_LIST: "api-keys-list",
 	API_KEYS_GENERATE: "api-keys-generate",
 
+	TASKS_ARCHIVED: "tasks-archived",
+	TASKS_LABELS: "tasks-labels",
+
 	PERMISSIONS_FULL_DISK_ACCESS: "permissions-full-disk-access",
 	PERMISSIONS_ACCESSIBILITY: "permissions-accessibility",
 	PERMISSIONS_MICROPHONE: "permissions-microphone",
@@ -835,6 +838,37 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 			"mcp",
 			"claude desktop",
 			"claude code",
+		],
+	},
+	{
+		id: SETTING_ITEM_ID.TASKS_ARCHIVED,
+		section: "tasks",
+		title: "Archived Tasks",
+		description: "View and restore archived tasks",
+		keywords: [
+			"tasks",
+			"archived",
+			"archive",
+			"restore",
+			"unarchive",
+			"deleted",
+			"hidden",
+		],
+	},
+	{
+		id: SETTING_ITEM_ID.TASKS_LABELS,
+		section: "tasks",
+		title: "Task Labels",
+		description: "Create, edit, and delete task labels",
+		keywords: [
+			"tasks",
+			"labels",
+			"tags",
+			"categories",
+			"color",
+			"organize",
+			"create",
+			"manage",
 		],
 	},
 	{
