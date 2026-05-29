@@ -27,7 +27,8 @@
 		},
 		"desktop-automation": {
 			"command": "bun",
-			"args": ["run", "packages/desktop-mcp/src/bin.ts"]
+			"args": ["run", "packages/desktop-mcp/src/bin.ts"],
+			"enabled": false
 		}
 	}
 }

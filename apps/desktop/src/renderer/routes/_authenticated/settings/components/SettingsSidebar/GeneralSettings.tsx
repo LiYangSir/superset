@@ -8,6 +8,7 @@ import {
 	HiOutlineSparkles,
 } from "react-icons/hi2";
 import {
+	LuBot,
 	LuBrainCircuit,
 	LuGitBranch,
 	LuKeyboard,
@@ -31,6 +32,7 @@ type SettingsRoute =
 	| "/settings/spaces"
 	| "/settings/tasks"
 	| "/settings/memory"
+	| "/settings/models"
 	| "/settings/permissions";
 
 interface SectionItem {
@@ -108,6 +110,12 @@ const SECTION_GROUPS: SectionGroup[] = [
 				section: "memory",
 				label: "Memory",
 				icon: <LuBrainCircuit className="h-4 w-4" />,
+			},
+			{
+				id: "/settings/models",
+				section: "models",
+				label: "Models",
+				icon: <LuBot className="h-4 w-4" />,
 			},
 		],
 	},

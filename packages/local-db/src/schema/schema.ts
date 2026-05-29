@@ -235,6 +235,9 @@ export const settings = sqliteTable("settings", {
 	worktreeBaseDir: text("worktree_base_dir"),
 	openLinksInApp: integer("open_links_in_app", { mode: "boolean" }),
 	defaultEditor: text("default_editor").$type<ExternalApp>(),
+	anthropicApiKey: text("anthropic_api_key"),
+	anthropicBaseUrl: text("anthropic_base_url"),
+	anthropicModel: text("anthropic_model"),
 });
 
 export type InsertSettings = typeof settings.$inferInsert;

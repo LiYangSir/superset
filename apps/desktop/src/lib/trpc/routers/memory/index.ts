@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { memories, projects } from "@superset/local-db";
+import { memories, projects, settings } from "@superset/local-db";
 import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { localDb } from "main/lib/local-db";
 import { z } from "zod";
@@ -17,6 +17,37 @@ function getSupersetHomeDir(): string {
 	);
 }
 
+function formatMemoriesAsMarkdown(
+	title: string,
+	mems: Array<{ content: string; category: string | null }>,
+): string {
+	const grouped = new Map<string, string[]>();
+	for (const mem of mems) {
+		const cat = mem.category || "General";
+		if (!grouped.has(cat)) grouped.set(cat, []);
+		grouped.get(cat)!.push(mem.content);
+	}
+
+	const lines = [`# ${title}`, ""];
+	for (const [category, items] of grouped) {
+		lines.push(`## ${category}`);
+		for (const item of items) {
+			lines.push(`- ${item}`);
+		}
+		lines.push("");
+	}
+
+	return lines.join("\n");
+}
+
+function writeMemoryFile(filePath: string, content: string) {
+	const dir = path.dirname(filePath);
+	fs.mkdirSync(dir, { recursive: true });
+	const tmpPath = `${filePath}.tmp`;
+	fs.writeFileSync(tmpPath, content);
+	fs.renameSync(tmpPath, filePath);
+}
+
 function regenerateGlobalMemoryFile() {
 	const globalMemories = localDb
 		.select()
@@ -25,31 +56,19 @@ function regenerateGlobalMemoryFile() {
 		.orderBy(desc(memories.updatedAt))
 		.all();
 
+	const filePath = path.join(getSupersetHomeDir(), "memory.md");
+
 	if (globalMemories.length === 0) {
-		const filePath = path.join(getSupersetHomeDir(), "memory.md");
 		try {
 			fs.unlinkSync(filePath);
-		} catch {
-			// File may not exist
-		}
+		} catch {}
 		return;
 	}
 
-	const lines = ["# Superset Memory (Global)", ""];
-	for (const mem of globalMemories) {
-		if (mem.category) {
-			lines.push(`## ${mem.category}`);
-		}
-		lines.push(mem.content);
-		lines.push("");
-	}
-
-	const dir = getSupersetHomeDir();
-	fs.mkdirSync(dir, { recursive: true });
-	const filePath = path.join(dir, "memory.md");
-	const tmpPath = `${filePath}.tmp`;
-	fs.writeFileSync(tmpPath, lines.join("\n"));
-	fs.renameSync(tmpPath, filePath);
+	writeMemoryFile(
+		filePath,
+		formatMemoriesAsMarkdown("Superset Memory (Global)", globalMemories),
+	);
 }
 
 function regenerateProjectMemoryFile(projectId: string) {
@@ -70,31 +89,19 @@ function regenerateProjectMemoryFile(projectId: string) {
 		.orderBy(desc(memories.updatedAt))
 		.all();
 
-	const supersetDir = path.join(project.mainRepoPath, ".superset");
+	const filePath = path.join(project.mainRepoPath, ".superset", "memory.md");
 
 	if (projectMemories.length === 0) {
 		try {
-			fs.unlinkSync(path.join(supersetDir, "memory.md"));
-		} catch {
-			// File may not exist
-		}
+			fs.unlinkSync(filePath);
+		} catch {}
 		return;
 	}
 
-	const lines = [`# Superset Memory (${project.name})`, ""];
-	for (const mem of projectMemories) {
-		if (mem.category) {
-			lines.push(`## ${mem.category}`);
-		}
-		lines.push(mem.content);
-		lines.push("");
-	}
-
-	fs.mkdirSync(supersetDir, { recursive: true });
-	const filePath = path.join(supersetDir, "memory.md");
-	const tmpPath = `${filePath}.tmp`;
-	fs.writeFileSync(tmpPath, lines.join("\n"));
-	fs.renameSync(tmpPath, filePath);
+	writeMemoryFile(
+		filePath,
+		formatMemoriesAsMarkdown(`Superset Memory (${project.name})`, projectMemories),
+	);
 }
 
 export const createMemoryRouter = () => {
@@ -269,25 +276,21 @@ export const createMemoryRouter = () => {
 					return null;
 				}
 
-				const lines: string[] = [];
+				const parts: string[] = [];
 
 				if (globalMems.length > 0) {
-					lines.push("# Global Memory");
-					for (const mem of globalMems) {
-						lines.push(`- ${mem.content}`);
-					}
-					lines.push("");
+					parts.push(
+						formatMemoriesAsMarkdown("Global Memory", globalMems),
+					);
 				}
 
 				if (projectMems.length > 0) {
-					lines.push("# Project Memory");
-					for (const mem of projectMems) {
-						lines.push(`- ${mem.content}`);
-					}
-					lines.push("");
+					parts.push(
+						formatMemoriesAsMarkdown("Project Memory", projectMems),
+					);
 				}
 
-				return lines.join("\n");
+				return parts.join("\n");
 			}),
 
 		regenerateFiles: publicProcedure
@@ -309,10 +312,22 @@ export const createMemoryRouter = () => {
 				}),
 			)
 			.mutation(async ({ input }) => {
-				const apiKey = process.env.ANTHROPIC_API_KEY;
+				console.log("[memory] summarizeSession called:", {
+					workspaceId: input.workspaceId,
+					projectId: input.projectId,
+				});
+
+				const settingsRow = localDb.select().from(settings).get();
+				const apiKey =
+					settingsRow?.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
 				if (!apiKey) {
+					console.log("[memory] No API key configured, skipping");
 					return { success: false, reason: "no_api_key" as const };
 				}
+				const baseUrl =
+					settingsRow?.anthropicBaseUrl || "https://api.anthropic.com";
+				const model =
+					settingsRow?.anthropicModel || "deepseek-v4-flash";
 
 				let projectId = input.projectId;
 				let projectPath = input.projectPath;
@@ -325,44 +340,120 @@ export const createMemoryRouter = () => {
 					}
 				}
 
+				console.log("[memory] Reading session transcript:", { projectPath });
 				const transcript = readLatestClaudeSession(projectPath);
 				if (!transcript) {
+					console.log("[memory] No recent transcript found (must be <30min old)");
 					return { success: false, reason: "no_transcript" as const };
+				}
+				console.log(
+					"[memory] Transcript found, length:",
+					transcript.length,
+					"- calling API with model:",
+					model,
+				);
+
+				const existingMemories = localDb
+					.select()
+					.from(memories)
+					.where(
+						projectId
+							? or(
+									eq(memories.scope, "global"),
+									and(
+										eq(memories.scope, "project"),
+										eq(memories.projectId, projectId),
+									),
+								)
+							: eq(memories.scope, "global"),
+					)
+					.orderBy(desc(memories.updatedAt))
+					.all();
+
+				const memoriesToInclude = existingMemories.slice(0, 50);
+				let existingMemoriesSection = "";
+				if (memoriesToInclude.length > 0) {
+					const globalMems = memoriesToInclude.filter(
+						(m) => m.scope === "global",
+					);
+					const projectMems = memoriesToInclude.filter(
+						(m) => m.scope === "project",
+					);
+
+					const sections: string[] = [];
+					if (globalMems.length > 0) {
+						sections.push("User Profile (global):");
+						for (const m of globalMems) {
+							sections.push(
+								`  - [id: ${m.id}] (${m.category || "General"}): ${m.content}`,
+							);
+						}
+					}
+					if (projectMems.length > 0) {
+						sections.push("Project-specific:");
+						for (const m of projectMems) {
+							sections.push(
+								`  - [id: ${m.id}] (${m.category || "General"}): ${m.content}`,
+							);
+						}
+					}
+					existingMemoriesSection = `\n\nExisting memories (do NOT duplicate these):\n${sections.join("\n")}\n`;
 				}
 
 				try {
-					const response = await fetch(
-						"https://api.anthropic.com/v1/messages",
-						{
-							method: "POST",
-							headers: {
-								"Content-Type": "application/json",
-								"x-api-key": apiKey,
-								"anthropic-version": "2023-06-01",
-							},
-							body: JSON.stringify({
-								model: "claude-sonnet-4-5-20250514",
-								max_tokens: 1024,
-								messages: [
-									{
-										role: "user",
-										content: `Analyze this coding session transcript and extract memory-worthy observations about the user's coding habits, preferences, requirements, or patterns. Only extract things that would be useful to remember for future sessions.
+					const response = await fetch(`${baseUrl}/v1/messages`, {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							"x-api-key": apiKey,
+							"anthropic-version": "2023-06-01",
+						},
+						body: JSON.stringify({
+							model,
+							max_tokens: 2048,
+							messages: [
+								{
+									role: "user",
+									content: `You analyze coding session transcripts and manage a memory system. Extract observations that would be useful for future sessions.
 
-Return a JSON array of memory objects. Each object should have:
-- "content": a concise description of the observation (1-2 sentences)
-- "category": one of "coding-style", "requirements", "preferences", "patterns", "tools"
+There are two scopes of memory:
+- "global": User profile — personal coding habits, preferred tools, communication style, expertise areas, general preferences. These travel across ALL projects.
+- "project": Project-specific — tech stack choices, architecture decisions, naming conventions, requirements, patterns unique to this project.
 
-Only include genuinely useful observations. If nothing noteworthy, return an empty array [].
+When in doubt, prefer "global" for anything about the USER (who they are, how they work) and "project" for anything about the CODEBASE (how it's built, what it requires).
+${existingMemoriesSection}
+For each observation, decide the appropriate action:
+- "create": New observation not covered by any existing memory
+- "update": An existing memory should be refined, corrected, or expanded (provide "existingId")
+- "delete": An existing memory is outdated, wrong, or superseded (provide "existingId")
+
+Return a JSON array. Each object must have:
+- "action": one of "create", "update", "delete"
+- "content": the memory text (1-2 sentences). Required for "create" and "update".
+- "scope": one of "global", "project". Required for "create". Determines where the memory is stored.
+- "category": a human-readable label like "Coding Style", "Requirements", "Preferences", "Patterns", "Tools & Environment", or another fitting label. Required for "create", optional for "update".
+- "existingId": the id of the existing memory to update or delete. Required for "update" and "delete".
+
+Rules:
+- Do NOT create a memory if an existing one already covers the same thing.
+- Prefer "update" over "create"+"delete" when refining an observation.
+- User profile changes (e.g. preferred language, expertise, habits) MUST use scope "global".
+- Only include genuinely useful observations. Return [] if nothing noteworthy.
 
 Session transcript:
 ${transcript}`,
-									},
-								],
-							}),
-						},
-					);
+								},
+							],
+						}),
+					});
 
 					if (!response.ok) {
+						const errBody = await response.text().catch(() => "");
+						console.log(
+							"[memory] API error:",
+							response.status,
+							errBody.slice(0, 200),
+						);
 						return { success: false, reason: "api_error" as const };
 					}
 
@@ -379,44 +470,131 @@ ${transcript}`,
 
 					const jsonMatch = text.match(/\[[\s\S]*\]/);
 					if (!jsonMatch) {
+						console.log("[memory] No JSON array found in response:", text.slice(0, 300));
 						return { success: false, reason: "no_json" as const };
 					}
 
 					const parsed = JSON.parse(jsonMatch[0]) as Array<{
-						content: string;
-						category: string;
+						action?: "create" | "update" | "delete";
+						content?: string;
+						category?: string;
+						scope?: "global" | "project";
+						existingId?: string;
 					}>;
 
+					console.log("[memory] Parsed items:", JSON.stringify(parsed));
+
 					if (!Array.isArray(parsed) || parsed.length === 0) {
-						return { success: true, count: 0 };
+						console.log("[memory] No memories extracted from session");
+						return { success: true, created: 0, updated: 0, deleted: 0 };
 					}
 
-					const scope = projectId ? "project" : "global";
-					let count = 0;
+					const existingIds = new Set(existingMemories.map((m) => m.id));
+					const validActions = new Set(["create", "update", "delete"]);
+					const validScopes = new Set(["global", "project"]);
 
-					for (const item of parsed) {
-						if (!item.content || typeof item.content !== "string") continue;
+					const validItems = parsed.filter((item) => {
+						const action = item.action || "create";
+						if (!validActions.has(action)) return false;
+						if (
+							action === "create" &&
+							(!item.content || typeof item.content !== "string")
+						)
+							return false;
+						if (
+							action === "update" &&
+							(!item.existingId ||
+								!existingIds.has(item.existingId) ||
+								!item.content)
+						)
+							return false;
+						if (
+							action === "delete" &&
+							(!item.existingId || !existingIds.has(item.existingId))
+						)
+							return false;
+						return true;
+					});
 
-						localDb
-							.insert(memories)
-							.values({
-								content: item.content,
-								scope,
-								projectId: projectId || null,
-								category: item.category || null,
-							})
-							.run();
-						count++;
-					}
+					let created = 0;
+					let updated = 0;
+					let deleted = 0;
+					let touchedGlobal = false;
+					let touchedProject = false;
 
-					if (count > 0) {
-						regenerateGlobalMemoryFile();
-						if (projectId) {
-							regenerateProjectMemoryFile(projectId);
+					for (const item of validItems) {
+						const action = item.action || "create";
+						switch (action) {
+							case "create": {
+								const itemScope =
+									item.scope && validScopes.has(item.scope)
+										? item.scope
+										: "global";
+								const itemProjectId =
+									itemScope === "project" ? projectId || null : null;
+								localDb
+									.insert(memories)
+									.values({
+										content: item.content!,
+										scope: itemScope,
+										projectId: itemProjectId,
+										category: item.category || null,
+									})
+									.run();
+								if (itemScope === "global") touchedGlobal = true;
+								else touchedProject = true;
+								created++;
+								break;
+							}
+							case "update": {
+								const existing = existingMemories.find(
+									(m) => m.id === item.existingId,
+								);
+								localDb
+									.update(memories)
+									.set({
+										content: item.content!,
+										...(item.category !== undefined
+											? { category: item.category }
+											: {}),
+										updatedAt: Date.now(),
+									})
+									.where(eq(memories.id, item.existingId!))
+									.run();
+								if (existing?.scope === "global") touchedGlobal = true;
+								else touchedProject = true;
+								updated++;
+								break;
+							}
+							case "delete": {
+								const existing = existingMemories.find(
+									(m) => m.id === item.existingId,
+								);
+								localDb
+									.delete(memories)
+									.where(eq(memories.id, item.existingId!))
+									.run();
+								if (existing?.scope === "global") touchedGlobal = true;
+								else touchedProject = true;
+								deleted++;
+								break;
+							}
 						}
 					}
 
-					return { success: true, count };
+					if (touchedGlobal) {
+						regenerateGlobalMemoryFile();
+					}
+					if (touchedProject && projectId) {
+						regenerateProjectMemoryFile(projectId);
+					}
+
+					console.log("[memory] summarizeSession complete:", {
+						created,
+						updated,
+						deleted,
+					});
+					return { success: true, created, updated, deleted };
 				} catch (error) {
 					console.error("[memory] Summarization failed:", error);
 					return { success: false, reason: "exception" as const };

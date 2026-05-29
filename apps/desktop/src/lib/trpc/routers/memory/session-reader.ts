@@ -35,17 +35,31 @@ export function readLatestClaudeSession(projectPath?: string): string | null {
 
 	if (projectPath) {
 		const entries = fs.readdirSync(projectsDir, { withFileTypes: true });
+		const normalizedProjectPath = projectPath.replace(/\//g, "-");
+		let bestMatch: string | null = null;
+		let bestMatchLength = 0;
+
 		for (const entry of entries) {
 			if (!entry.isDirectory()) continue;
 			const decoded = entry.name.replace(/-/g, "/");
 			if (
-				projectPath.includes(decoded) ||
-				decoded.includes(projectPath.replace(/\//g, "-"))
+				decoded === projectPath ||
+				entry.name === normalizedProjectPath ||
+				entry.name === `-${normalizedProjectPath.slice(1)}`
 			) {
-				targetDir = path.join(projectsDir, entry.name);
+				bestMatch = path.join(projectsDir, entry.name);
 				break;
 			}
+			if (
+				projectPath.startsWith(decoded) &&
+				decoded.length > bestMatchLength
+			) {
+				bestMatchLength = decoded.length;
+				bestMatch = path.join(projectsDir, entry.name);
+			}
 		}
+
+		targetDir = bestMatch;
 	}
 
 	if (!targetDir) {
@@ -83,8 +97,8 @@ export function readLatestClaudeSession(projectPath?: string): string | null {
 	if (jsonlFiles.length === 0) return null;
 
 	const latestFile = jsonlFiles[0]!;
-	const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
-	if (latestFile.mtime < fiveMinutesAgo) return null;
+	const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
+	if (latestFile.mtime < thirtyMinutesAgo) return null;
 
 	try {
 		const content = fs.readFileSync(latestFile.path, "utf-8");
