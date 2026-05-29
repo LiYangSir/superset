@@ -407,6 +407,7 @@ export const createMemoryRouter = () => {
 							"Content-Type": "application/json",
 							"x-api-key": apiKey,
 							"anthropic-version": "2023-06-01",
+							"User-Agent": "claude-cli/2.1.44 (external, sdk-cli)",
 						},
 						body: JSON.stringify({
 							model,

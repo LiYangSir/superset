@@ -89,6 +89,9 @@ export function useAgentHookListener() {
 					});
 
 					state.setPaneStatus(paneId, isInActiveTab ? "idle" : "review");
+					if (workspaceId) {
+						summarizeSession.mutate({ workspaceId });
+					}
 				}
 			} else if (event.type === NOTIFICATION_EVENTS.TERMINAL_EXIT) {
 				// Clear transient status for unmounted panes (mounted panes handle this via stream subscription)
