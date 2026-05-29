@@ -418,10 +418,10 @@ export const createMemoryRouter = () => {
 									content: `You analyze coding session transcripts and manage a memory system. Extract observations that would be useful for future sessions.
 
 There are two scopes of memory:
-- "global": User profile — personal coding habits, preferred tools, communication style, expertise areas, general preferences. These travel across ALL projects.
-- "project": Project-specific — tech stack choices, architecture decisions, naming conventions, requirements, patterns unique to this project.
+- "global": User profile — coding preferences, communication style, workflow habits, tools, expertise, role, and general preferences. These travel across ALL projects.
+- "project": Project-specific — tech stack, architecture decisions, naming conventions, requirements, team conventions, patterns unique to this project.
 
-When in doubt, prefer "global" for anything about the USER (who they are, how they work) and "project" for anything about the CODEBASE (how it's built, what it requires).
+When in doubt, prefer "global" for anything about the USER (who they are, how they work, how they communicate) and "project" for anything about the CODEBASE (how it's built, what it requires, team agreements).
 ${existingMemoriesSection}
 For each observation, decide the appropriate action:
 - "create": New observation not covered by any existing memory
@@ -432,7 +432,15 @@ Return a JSON array. Each object must have:
 - "action": one of "create", "update", "delete"
 - "content": the memory text (1-2 sentences). Required for "create" and "update".
 - "scope": one of "global", "project". Required for "create". Determines where the memory is stored.
-- "category": a human-readable label like "Coding Style", "Requirements", "Preferences", "Patterns", "Tools & Environment", or another fitting label. Required for "create", optional for "update".
+- "category": a human-readable label. Required for "create", optional for "update". Suggested categories:
+  - "Coding Preferences": language, framework, naming conventions, code style
+  - "Communication Style": preferred language, reply verbosity, interaction mode
+  - "Workflow": common tools, Git habits, development process
+  - "Project Context": tech stack, architecture decisions, team conventions
+  - "Profile": role, responsibilities, goals, focus areas
+  - "Patterns": recurring code patterns, abstractions, idioms
+  - "Requirements": project constraints, acceptance criteria
+  - Or another fitting label.
 - "existingId": the id of the existing memory to update or delete. Required for "update" and "delete".
 
 Rules:
