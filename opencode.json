@@ -29,10 +29,6 @@
 		"sentry": {
 			"type": "remote",
 			"url": "https://mcp.sentry.dev/mcp"
-		},
-		"desktop-automation": {
-			"type": "local",
-			"command": ["bun", "run", "packages/desktop-mcp/src/bin.ts"]
 		}
 	}
 }

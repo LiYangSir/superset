@@ -70,7 +70,6 @@
 		"@radix-ui/react-dialog": "^1.1.15",
 		"@radix-ui/react-label": "^2.1.8",
 		"@streamdown/mermaid": "^1.0.2",
-		"@superset/desktop-mcp": "workspace:*",
 		"@superset/local-db": "workspace:*",
 		"@superset/shared": "workspace:*",
 		"@superset/ui": "workspace:*",
