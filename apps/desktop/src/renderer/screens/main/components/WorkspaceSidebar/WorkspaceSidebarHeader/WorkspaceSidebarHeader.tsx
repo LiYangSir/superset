@@ -67,10 +67,7 @@ export function WorkspaceSidebarHeader({
 									: "text-muted-foreground hover:text-foreground hover:bg-accent/50",
 							)}
 						>
-							<LuListTodo
-								className="size-4"
-								strokeWidth={STROKE_WIDTH}
-							/>
+							<LuListTodo className="size-4" strokeWidth={STROKE_WIDTH} />
 						</button>
 					</TooltipTrigger>
 					<TooltipContent side="right">Tasks</TooltipContent>

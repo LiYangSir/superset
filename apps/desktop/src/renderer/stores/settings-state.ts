@@ -18,6 +18,7 @@ export type SettingsSection =
 	| "permissions"
 	| "spaces"
 	| "tasks"
+	| "memory"
 	| "project";
 
 interface SettingsState {

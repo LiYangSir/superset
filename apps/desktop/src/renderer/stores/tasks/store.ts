@@ -1,6 +1,6 @@
+import type { TaskViewMode } from "renderer/screens/main/components/TasksView/constants";
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
-import type { TaskViewMode } from "renderer/screens/main/components/TasksView/constants";
 
 interface TasksViewState {
 	viewMode: TaskViewMode;
@@ -39,7 +39,10 @@ export const useTasksViewStore = create<TasksViewState>()(
 				clearFilters: () =>
 					set({ search: "", filterPriority: null, filterStatus: null }),
 			}),
-			{ name: "tasks-view-state", partialize: (state) => ({ viewMode: state.viewMode }) },
+			{
+				name: "tasks-view-state",
+				partialize: (state) => ({ viewMode: state.viewMode }),
+			},
 		),
 		{ name: "tasks-view" },
 	),

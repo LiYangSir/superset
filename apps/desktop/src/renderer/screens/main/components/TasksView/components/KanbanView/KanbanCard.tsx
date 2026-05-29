@@ -1,7 +1,7 @@
-import { cn } from "@superset/ui/utils";
 import type { SelectTask, SelectTaskLabel } from "@superset/local-db";
-import { PriorityBadge } from "../PriorityBadge";
+import { cn } from "@superset/ui/utils";
 import { LabelChip } from "../LabelChip";
+import { PriorityBadge } from "../PriorityBadge";
 import type { SubtaskCount } from "./KanbanView";
 
 interface KanbanCardProps {

@@ -24,7 +24,7 @@ import { type ActivePaneStatus, pickHigherStatus } from "shared/tabs-types";
 import { AddTabButton } from "./components/AddTabButton";
 import { GroupItem } from "./GroupItem";
 
-const NO_WORKSPACE_MATCH = "__no_workspace__";
+const _NO_WORKSPACE_MATCH = "__no_workspace__";
 
 export function GroupStrip() {
 	const { workspaceId: activeWorkspaceId } = useParams({ strict: false });
@@ -44,8 +44,8 @@ export function GroupStrip() {
 	const reorderTabs = useTabsStore((s) => s.reorderTabs);
 	const setPaneStatus = useTabsStore((s) => s.setPaneStatus);
 
-	const setTabAutoTitle = useTabsStore((s) => s.setTabAutoTitle);
-	const setPaneAutoTitle = useTabsStore((s) => s.setPaneAutoTitle);
+	const _setTabAutoTitle = useTabsStore((s) => s.setTabAutoTitle);
+	const _setPaneAutoTitle = useTabsStore((s) => s.setPaneAutoTitle);
 	const { presets } = usePresets();
 	const navigate = useNavigate();
 

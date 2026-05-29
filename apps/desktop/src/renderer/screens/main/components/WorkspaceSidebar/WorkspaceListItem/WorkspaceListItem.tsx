@@ -5,6 +5,7 @@ import { cn } from "@superset/ui/utils";
 import { useMatchRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { HiMiniXMark } from "react-icons/hi2";
+import { LuPanelTop } from "react-icons/lu";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useWorkspaceDeleteHandler } from "renderer/react-query/workspaces";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
@@ -76,6 +77,9 @@ export function WorkspaceListItem({
 		}
 		return getHighestPriorityStatus(paneStatuses());
 	});
+	const tabCount = useTabsStore(
+		(state) => state.tabs.filter((t) => t.workspaceId === id).length,
+	);
 	const clearWorkspaceAttentionStatus = useTabsStore(
 		(s) => s.clearWorkspaceAttentionStatus,
 	);
@@ -225,6 +229,7 @@ export function WorkspaceListItem({
 			: null);
 
 	const showBranchSubtitle = isBranchWorkspace || (!!name && name !== branch);
+	const hasSubtitleRow = showBranchSubtitle || !!pr;
 
 	if (isCollapsed) {
 		return (
@@ -275,7 +280,7 @@ export function WorkspaceListItem({
 				"flex w-full pl-3 pr-2 text-sm",
 				"hover:bg-muted/50 transition-colors text-left cursor-pointer",
 				"group relative",
-				showBranchSubtitle ? "py-1.5" : "py-2 items-center",
+				hasSubtitleRow ? "py-1.5" : "py-2 items-center",
 				isActive && "bg-muted",
 				isSelected && "bg-primary/10 ring-1 ring-inset ring-primary/30",
 				(isDragging || isMultiDragging) && "opacity-30",
@@ -291,7 +296,7 @@ export function WorkspaceListItem({
 					<div
 						className={cn(
 							"relative shrink-0 size-5 flex items-center justify-center mr-2.5",
-							showBranchSubtitle && "mt-0.5",
+							hasSubtitleRow && "mt-0.5",
 						)}
 					>
 						<WorkspaceIcon
@@ -352,6 +357,18 @@ export function WorkspaceListItem({
 								{isBranchWorkspace ? "local" : name || branch}
 							</span>
 
+							{tabCount > 0 && (
+								<span
+									className={cn(
+										"inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium tabular-nums leading-none shrink-0",
+										"bg-primary/10 text-primary",
+									)}
+								>
+									<LuPanelTop className="size-2.5" />
+									{tabCount}
+								</span>
+							)}
+
 							{isBranchWorkspace && aheadBehind && (
 								<WorkspaceAheadBehind
 									ahead={aheadBehind.ahead}
@@ -399,7 +416,7 @@ export function WorkspaceListItem({
 						</div>
 
 						{(showBranchSubtitle || pr) && (
-							<div className="flex items-center gap-2 text-[11px] w-full">
+							<div className="flex items-center gap-1.5 text-[11px] w-full">
 								{showBranchSubtitle && (
 									<span className="text-muted-foreground/60 truncate font-mono leading-tight">
 										{branch}

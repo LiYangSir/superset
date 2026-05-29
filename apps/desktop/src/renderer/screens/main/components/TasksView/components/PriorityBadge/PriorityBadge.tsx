@@ -1,9 +1,9 @@
 import { cn } from "@superset/ui/utils";
 import {
+	LuMinus,
 	LuSignalHigh,
 	LuSignalLow,
 	LuSignalMedium,
-	LuMinus,
 	LuTriangleAlert,
 } from "react-icons/lu";
 import { TASK_PRIORITIES } from "../../constants";

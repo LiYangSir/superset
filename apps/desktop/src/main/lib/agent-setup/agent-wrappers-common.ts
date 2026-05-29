@@ -13,7 +13,8 @@ export const SUPERSET_MANAGED_BINARIES = [
 	"mastracode",
 ] as const;
 
-const SUPERSET_MANAGED_HOOK_PATH_PATTERN = /\/\.superset(?:-[^/'"\s\\]+)?\//;
+const SUPERSET_MANAGED_HOOK_PATH_PATTERN =
+	/\/\.superset(?:-[^/'"\s\\]+)?\/|\/superset-dev-data\//;
 
 export function writeFileIfChanged(
 	filePath: string,
@@ -112,10 +113,19 @@ export function getWrapperPath(binaryName: string): string {
 	return path.join(BIN_DIR, binaryName);
 }
 
+interface BuildWrapperScriptOptions {
+	agentId?: string;
+}
+
 export function buildWrapperScript(
 	binaryName: string,
 	execLine: string,
+	options: BuildWrapperScriptOptions = {},
 ): string {
+	const agentIdExport = options.agentId
+		? `export SUPERSET_AGENT_ID="${options.agentId}"\n\n`
+		: "";
+
 	return `#!/bin/bash
 ${WRAPPER_MARKER}
 # Superset wrapper for ${binaryName}
@@ -127,7 +137,7 @@ if [ -z "$REAL_BIN" ]; then
   exit 127
 fi
 
-${execLine}
+${agentIdExport}${execLine}
 `;
 }
 

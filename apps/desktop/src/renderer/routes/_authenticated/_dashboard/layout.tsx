@@ -7,12 +7,12 @@ import {
 import { useCallback, useEffect, useRef } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { ResizablePanel } from "renderer/screens/main/components/ResizablePanel";
+import { WorkspaceSidebar } from "renderer/screens/main/components/WorkspaceSidebar";
 import {
 	hasPersistedActiveSpaceId,
 	useActiveSpaceId,
 	useSetActiveSpaceId,
 } from "renderer/stores/active-space";
-import { WorkspaceSidebar } from "renderer/screens/main/components/WorkspaceSidebar";
 import { useAppHotkey } from "renderer/stores/hotkeys";
 import { useOpenNewWorkspaceModal } from "renderer/stores/new-workspace-modal";
 import {
@@ -21,8 +21,8 @@ import {
 	MAX_WORKSPACE_SIDEBAR_WIDTH,
 	useWorkspaceSidebarStore,
 } from "renderer/stores/workspace-sidebar-state";
-import { navigateToWorkspace } from "./utils/workspace-navigation";
 import { TopBar } from "./components/TopBar";
+import { navigateToWorkspace } from "./utils/workspace-navigation";
 
 export const Route = createFileRoute("/_authenticated/_dashboard")({
 	component: DashboardLayout,
@@ -87,14 +87,20 @@ function DashboardLayout() {
 
 		if (!spaceGroups || spaceGroups.length === 0) return;
 
-		const currentBelongsToSpace = currentWorkspace?.project?.spaceId === activeSpaceId;
+		const currentBelongsToSpace =
+			currentWorkspace?.project?.spaceId === activeSpaceId;
 		if (currentBelongsToSpace) return;
 
 		const firstWorkspace = spaceGroups[0]?.workspaces[0];
 		if (firstWorkspace) {
 			navigateToWorkspace(firstWorkspace.id, navigate);
 		}
-	}, [activeSpaceId, spaceGroups, currentWorkspace?.project?.spaceId, navigate]);
+	}, [
+		activeSpaceId,
+		spaceGroups,
+		currentWorkspace?.project?.spaceId,
+		navigate,
+	]);
 
 	const {
 		isOpen: isWorkspaceSidebarOpen,

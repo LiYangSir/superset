@@ -26,6 +26,7 @@ const SECTION_ORDER: SettingsSection[] = [
 	"terminal",
 	"spaces",
 	"tasks",
+	"memory",
 	"permissions",
 ];
 
@@ -38,6 +39,7 @@ function getSectionFromPath(pathname: string): SettingsSection | null {
 	if (pathname.includes("/settings/terminal")) return "terminal";
 	if (pathname.includes("/settings/spaces")) return "spaces";
 	if (pathname.includes("/settings/tasks")) return "tasks";
+	if (pathname.includes("/settings/memory")) return "memory";
 	if (pathname.includes("/settings/permissions")) return "permissions";
 	if (pathname.includes("/settings/project")) return "project";
 	return null;
@@ -61,6 +63,8 @@ function getPathFromSection(section: SettingsSection): string {
 			return "/settings/spaces";
 		case "tasks":
 			return "/settings/tasks";
+		case "memory":
+			return "/settings/memory";
 		case "permissions":
 			return "/settings/permissions";
 		default:

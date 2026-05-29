@@ -23,14 +23,18 @@ import { TASK_PRIORITIES, TASK_STATUSES } from "../../constants";
 import { PriorityBadge } from "../PriorityBadge";
 import { StatusBadge } from "../StatusBadge";
 
-type TaskStatus = "backlog" | "todo" | "in_progress" | "in_review" | "done" | "cancelled";
+type TaskStatus =
+	| "backlog"
+	| "todo"
+	| "in_progress"
+	| "in_review"
+	| "done"
+	| "cancelled";
 type TaskPriority = "urgent" | "high" | "medium" | "low" | "none";
 
 export function NewTaskDialog() {
 	const showNewTaskDialog = useTasksViewStore((s) => s.showNewTaskDialog);
-	const setShowNewTaskDialog = useTasksViewStore(
-		(s) => s.setShowNewTaskDialog,
-	);
+	const setShowNewTaskDialog = useTasksViewStore((s) => s.setShowNewTaskDialog);
 
 	const [title, setTitle] = useState("");
 	const [status, setStatus] = useState<TaskStatus>("todo");
@@ -86,15 +90,11 @@ export function NewTaskDialog() {
 					<div className="flex items-center gap-2 flex-wrap">
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
-								<Button
-									variant="outline"
-									size="sm"
-									className="gap-1.5"
-								>
+								<Button variant="outline" size="sm" className="gap-1.5">
 									<StatusBadge statusId={status} size={13} />
 									<span className="text-xs">
-										{TASK_STATUSES.find((s) => s.id === status)
-											?.label ?? status}
+										{TASK_STATUSES.find((s) => s.id === status)?.label ??
+											status}
 									</span>
 								</Button>
 							</DropdownMenuTrigger>
@@ -114,19 +114,11 @@ export function NewTaskDialog() {
 
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
-								<Button
-									variant="outline"
-									size="sm"
-									className="gap-1.5"
-								>
-									<PriorityBadge
-										priorityId={priority}
-										size={13}
-									/>
+								<Button variant="outline" size="sm" className="gap-1.5">
+									<PriorityBadge priorityId={priority} size={13} />
 									<span className="text-xs">
-										{TASK_PRIORITIES.find(
-											(p) => p.id === priority,
-										)?.label ?? priority}
+										{TASK_PRIORITIES.find((p) => p.id === priority)?.label ??
+											priority}
 									</span>
 								</Button>
 							</DropdownMenuTrigger>
@@ -137,10 +129,7 @@ export function NewTaskDialog() {
 										onClick={() => setPriority(p.id as TaskPriority)}
 										className="gap-2"
 									>
-										<PriorityBadge
-											priorityId={p.id}
-											size={13}
-										/>
+										<PriorityBadge priorityId={p.id} size={13} />
 										<span>{p.label}</span>
 									</DropdownMenuItem>
 								))}
@@ -149,18 +138,14 @@ export function NewTaskDialog() {
 
 						<Popover>
 							<PopoverTrigger asChild>
-								<Button
-									variant="outline"
-									size="sm"
-									className="gap-1.5"
-								>
+								<Button variant="outline" size="sm" className="gap-1.5">
 									<LuCalendar className="size-3 text-foreground/50" />
 									<span className="text-xs">
 										{dueDate
-											? new Date(dueDate).toLocaleDateString(
-													"en-US",
-													{ month: "short", day: "numeric" },
-												)
+											? new Date(dueDate).toLocaleDateString("en-US", {
+													month: "short",
+													day: "numeric",
+												})
 											: "Due date"}
 									</span>
 								</Button>
@@ -168,15 +153,9 @@ export function NewTaskDialog() {
 							<PopoverContent className="w-auto p-0" align="start">
 								<Calendar
 									mode="single"
-									selected={
-										dueDate ? new Date(dueDate) : undefined
-									}
+									selected={dueDate ? new Date(dueDate) : undefined}
 									onSelect={(date) =>
-										setDueDate(
-											date
-												? date.toISOString().split("T")[0]
-												: "",
-										)
+										setDueDate(date ? date.toISOString().split("T")[0] : "")
 									}
 								/>
 							</PopoverContent>

@@ -1,5 +1,5 @@
-import { cn } from "@superset/ui/utils";
 import type { SelectTask, SelectTaskLabel } from "@superset/local-db";
+import { cn } from "@superset/ui/utils";
 import { StatusBadge } from "../StatusBadge";
 import { KanbanCard } from "./KanbanCard";
 import { KanbanCardContextMenu } from "./KanbanCardContextMenu";
@@ -54,10 +54,7 @@ export function KanbanColumn({
 			<div className="flex flex-col gap-1.5 px-1 pb-2 flex-1 overflow-y-auto hide-scrollbar">
 				{tasks.map((task) => (
 					<KanbanCardContextMenu key={task.id} taskId={task.id}>
-						<div
-							draggable
-							onDragStart={(e) => onDragStart(e, task.id)}
-						>
+						<div draggable onDragStart={(e) => onDragStart(e, task.id)}>
 							<KanbanCard
 								task={task}
 								labels={labels}

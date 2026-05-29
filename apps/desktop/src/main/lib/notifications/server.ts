@@ -1,5 +1,4 @@
 import { EventEmitter } from "node:events";
-import { BrowserWindow } from "electron";
 import express from "express";
 import { NOTIFICATION_EVENTS } from "shared/constants";
 import { env } from "shared/env.shared";
@@ -182,7 +181,6 @@ app.get("/hook/complete", (req, res) => {
 app.get("/health", (_req, res) => {
 	res.json({ status: "ok" });
 });
-
 
 // 404
 app.use((_req, res) => {

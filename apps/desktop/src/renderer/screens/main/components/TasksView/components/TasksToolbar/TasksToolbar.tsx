@@ -29,9 +29,7 @@ export function TasksToolbar() {
 	const setFilterPriority = useTasksViewStore((s) => s.setFilterPriority);
 	const filterStatus = useTasksViewStore((s) => s.filterStatus);
 	const setFilterStatus = useTasksViewStore((s) => s.setFilterStatus);
-	const setShowNewTaskDialog = useTasksViewStore(
-		(s) => s.setShowNewTaskDialog,
-	);
+	const setShowNewTaskDialog = useTasksViewStore((s) => s.setShowNewTaskDialog);
 	const clearFilters = useTasksViewStore((s) => s.clearFilters);
 
 	const hasFilters = !!filterPriority || !!filterStatus;
@@ -72,10 +70,7 @@ export function TasksToolbar() {
 					<Button
 						variant="ghost"
 						size="sm"
-						className={cn(
-							"h-7 gap-1 text-xs",
-							filterStatus && "bg-accent/50",
-						)}
+						className={cn("h-7 gap-1 text-xs", filterStatus && "bg-accent/50")}
 					>
 						{filterStatus ? (
 							<StatusBadge statusId={filterStatus} size={12} showLabel />
@@ -116,11 +111,7 @@ export function TasksToolbar() {
 						)}
 					>
 						{filterPriority ? (
-							<PriorityBadge
-								priorityId={filterPriority}
-								size={12}
-								showLabel
-							/>
+							<PriorityBadge priorityId={filterPriority} size={12} showLabel />
 						) : (
 							<>
 								<LuFilter className="size-3" />

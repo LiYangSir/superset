@@ -35,6 +35,8 @@ import { resolveNotificationTarget } from "./utils/resolve-notification-target";
 export function useAgentHookListener() {
 	const navigate = useNavigate();
 
+	const summarizeSession = electronTrpc.memory.summarizeSession.useMutation();
+
 	// Ref avoids stale closure; parsed from URL since hook runs in _authenticated/layout
 	const currentWorkspaceIdRef = useRef<string | null>(null);
 	try {
@@ -66,6 +68,11 @@ export function useAgentHookListener() {
 					state.setPaneStatus(paneId, "working");
 				} else if (eventType === "PermissionRequest") {
 					state.setPaneStatus(paneId, "permission");
+				} else if (eventType === "SessionEnd") {
+					state.setPaneStatus(paneId, "idle");
+					if (workspaceId) {
+						summarizeSession.mutate({ workspaceId });
+					}
 				} else if (eventType === "Stop") {
 					const activeTabId = state.activeTabIds[workspaceId];
 					const pane = state.panes[paneId];

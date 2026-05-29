@@ -16,8 +16,7 @@ export function filterTasks(
 		const q = filters.search.toLowerCase();
 		result = result.filter(
 			(t) =>
-				t.title.toLowerCase().includes(q) ||
-				t.slug.toLowerCase().includes(q),
+				t.title.toLowerCase().includes(q) || t.slug.toLowerCase().includes(q),
 		);
 	}
 

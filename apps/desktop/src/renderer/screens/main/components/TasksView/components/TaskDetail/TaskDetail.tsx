@@ -25,7 +25,11 @@ export function TaskDetail() {
 	const selectedTaskId = useTasksViewStore((s) => s.selectedTaskId);
 	const setSelectedTaskId = useTasksViewStore((s) => s.setSelectedTaskId);
 
-	const { data: taskData, isLoading, isError } = electronTrpc.tasks.get.useQuery(
+	const {
+		data: taskData,
+		isLoading,
+		isError,
+	} = electronTrpc.tasks.get.useQuery(
 		{ id: selectedTaskId ?? "" },
 		{ enabled: !!selectedTaskId, retry: 1 },
 	);
@@ -86,7 +90,11 @@ export function TaskDetail() {
 		return (
 			<div className="w-[400px] border-l border-border bg-card flex flex-col items-center justify-center h-full shrink-0 gap-2">
 				<span className="text-xs text-foreground/40">Failed to load task</span>
-				<Button variant="ghost" size="sm" onClick={() => setSelectedTaskId(null)}>
+				<Button
+					variant="ghost"
+					size="sm"
+					onClick={() => setSelectedTaskId(null)}
+				>
 					Close
 				</Button>
 			</div>
@@ -163,7 +171,15 @@ export function TaskDetail() {
 									onClick={() =>
 										updateTask.mutate({
 											id: selectedTaskId,
-											patch: { status: s.id as "backlog" | "todo" | "in_progress" | "in_review" | "done" | "cancelled" },
+											patch: {
+												status: s.id as
+													| "backlog"
+													| "todo"
+													| "in_progress"
+													| "in_review"
+													| "done"
+													| "cancelled",
+											},
 										})
 									}
 									className="gap-2"
@@ -197,7 +213,14 @@ export function TaskDetail() {
 									onClick={() =>
 										updateTask.mutate({
 											id: selectedTaskId,
-											patch: { priority: p.id as "urgent" | "high" | "medium" | "low" | "none" },
+											patch: {
+												priority: p.id as
+													| "urgent"
+													| "high"
+													| "medium"
+													| "low"
+													| "none",
+											},
 										})
 									}
 									className="gap-2"
@@ -219,10 +242,11 @@ export function TaskDetail() {
 							>
 								<LuCalendar className="size-3 text-foreground/50" />
 								{taskData.due_date
-									? new Date(taskData.due_date).toLocaleDateString(
-											"en-US",
-											{ month: "short", day: "numeric", year: "numeric" },
-										)
+									? new Date(taskData.due_date).toLocaleDateString("en-US", {
+											month: "short",
+											day: "numeric",
+											year: "numeric",
+										})
 									: "Set due date"}
 							</Button>
 						</PopoverTrigger>
@@ -230,17 +254,13 @@ export function TaskDetail() {
 							<Calendar
 								mode="single"
 								selected={
-									taskData.due_date
-										? new Date(taskData.due_date)
-										: undefined
+									taskData.due_date ? new Date(taskData.due_date) : undefined
 								}
 								onSelect={(date) =>
 									updateTask.mutate({
 										id: selectedTaskId,
 										patch: {
-											due_date: date
-												? date.toISOString().split("T")[0]
-												: null,
+											due_date: date ? date.toISOString().split("T")[0] : null,
 										},
 									})
 								}
@@ -279,10 +299,7 @@ export function TaskDetail() {
 				<Separator />
 
 				{/* Comments */}
-				<CommentSection
-					taskId={selectedTaskId}
-					comments={taskData.comments}
-				/>
+				<CommentSection taskId={selectedTaskId} comments={taskData.comments} />
 			</div>
 		</div>
 	);

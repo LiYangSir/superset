@@ -63,7 +63,7 @@ export function NewWorkspaceModalContent({
 				? recentProjects.filter((p) => p.spaceId === activeSpaceId)
 				: [];
 			const fallbackProjectId =
-				(spaceProjects[0]?.id ?? recentProjects[0]?.id) ?? null;
+				spaceProjects[0]?.id ?? recentProjects[0]?.id ?? null;
 			if (fallbackProjectId !== draft.selectedProjectId) {
 				updateDraft({ selectedProjectId: fallbackProjectId });
 			}

@@ -73,8 +73,11 @@ export async function attemptWorkspaceAutoRenameFromPrompt({
 		return { status: "skipped", reason: "workspace-named" };
 	}
 
-	const { name: generatedName, usedPromptFallback, warning } =
-		await generateWorkspaceNameFromPrompt(cleanedPrompt);
+	const {
+		name: generatedName,
+		usedPromptFallback,
+		warning,
+	} = await generateWorkspaceNameFromPrompt(cleanedPrompt);
 	if (generatedName === null) {
 		return {
 			status: "skipped",

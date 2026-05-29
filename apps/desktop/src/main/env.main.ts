@@ -11,7 +11,7 @@ export const env = {
 	SKIP_ENV_VALIDATION: true,
 	DESKTOP_NOTIFICATIONS_PORT: process.env.DESKTOP_NOTIFICATIONS_PORT
 		? Number(process.env.DESKTOP_NOTIFICATIONS_PORT)
-		: undefined,
+		: 51741,
 	DESKTOP_VITE_PORT: process.env.DESKTOP_VITE_PORT
 		? Number(process.env.DESKTOP_VITE_PORT)
 		: 5173,

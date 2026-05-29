@@ -98,173 +98,173 @@ export const createQueryProcedures = () => {
 			.input(z.object({ spaceId: z.string().optional() }).optional())
 			.query(({ input }) => {
 				const spaceId = input?.spaceId;
-			type WorkspaceItem = {
-				id: string;
-				projectId: string;
-				sectionId: string | null;
-				worktreeId: string | null;
-				worktreePath: string;
-				type: "worktree" | "branch";
-				branch: string;
-				name: string;
-				tabOrder: number;
-				createdAt: number;
-				updatedAt: number;
-				lastOpenedAt: number;
-				isUnread: boolean;
-				isUnnamed: boolean;
-			};
+				type WorkspaceItem = {
+					id: string;
+					projectId: string;
+					sectionId: string | null;
+					worktreeId: string | null;
+					worktreePath: string;
+					type: "worktree" | "branch";
+					branch: string;
+					name: string;
+					tabOrder: number;
+					createdAt: number;
+					updatedAt: number;
+					lastOpenedAt: number;
+					isUnread: boolean;
+					isUnnamed: boolean;
+				};
 
-			type SectionItem = {
-				id: string;
-				projectId: string;
-				name: string;
-				tabOrder: number;
-				isCollapsed: boolean;
-				color: string | null;
-				workspaces: WorkspaceItem[];
-			};
-
-			type TopLevelItem = {
-				id: string;
-				kind: "workspace" | "section";
-				tabOrder: number;
-			};
-
-			const activeProjects = localDb
-				.select()
-				.from(projects)
-				.where(
-					spaceId
-						? and(isNotNull(projects.tabOrder), eq(projects.spaceId, spaceId))
-						: isNotNull(projects.tabOrder),
-				)
-				.all();
-
-			const allWorktrees = localDb.select().from(worktrees).all();
-			const worktreePathMap: WorktreePathMap = new Map(
-				allWorktrees.map((wt) => [wt.id, wt.path]),
-			);
-
-			const allSections = localDb.select().from(workspaceSections).all();
-
-			const groupsMap = new Map<
-				string,
-				{
-					project: {
-						id: string;
-						name: string;
-						color: string;
-						tabOrder: number;
-						spaceId: string | null;
-						githubOwner: string | null;
-						mainRepoPath: string;
-						hideImage: boolean;
-						iconUrl: string | null;
-					};
+				type SectionItem = {
+					id: string;
+					projectId: string;
+					name: string;
+					tabOrder: number;
+					isCollapsed: boolean;
+					color: string | null;
 					workspaces: WorkspaceItem[];
-					sections: SectionItem[];
-					topLevelItems: TopLevelItem[];
-				}
-			>();
+				};
 
-			for (const project of activeProjects) {
-				const projectSections = allSections
-					.filter((s) => s.projectId === project.id)
-					.sort((a, b) => a.tabOrder - b.tabOrder)
-					.map((s) => ({
-						id: s.id,
-						projectId: s.projectId,
-						name: s.name,
-						tabOrder: s.tabOrder,
-						isCollapsed: s.isCollapsed ?? false,
-						color: s.color ?? null,
-						workspaces: [] as WorkspaceItem[],
-					}));
+				type TopLevelItem = {
+					id: string;
+					kind: "workspace" | "section";
+					tabOrder: number;
+				};
 
-				groupsMap.set(project.id, {
-					project: {
-						id: project.id,
-						name: project.name,
-						color: project.color,
-						// biome-ignore lint/style/noNonNullAssertion: filter guarantees tabOrder is not null
-						tabOrder: project.tabOrder!,
-						spaceId: project.spaceId ?? null,
-						githubOwner: project.githubOwner ?? null,
-						mainRepoPath: project.mainRepoPath,
-						hideImage: project.hideImage ?? false,
-						iconUrl: project.iconUrl ?? null,
-					},
-					workspaces: [],
-					sections: projectSections,
-					topLevelItems: [],
-				});
-			}
+				const activeProjects = localDb
+					.select()
+					.from(projects)
+					.where(
+						spaceId
+							? and(isNotNull(projects.tabOrder), eq(projects.spaceId, spaceId))
+							: isNotNull(projects.tabOrder),
+					)
+					.all();
 
-			const allWorkspaces = localDb
-				.select()
-				.from(workspaces)
-				.where(isNull(workspaces.deletingAt))
-				.all()
-				.sort((a, b) => a.tabOrder - b.tabOrder);
+				const allWorktrees = localDb.select().from(worktrees).all();
+				const worktreePathMap: WorktreePathMap = new Map(
+					allWorktrees.map((wt) => [wt.id, wt.path]),
+				);
 
-			for (const workspace of allWorkspaces) {
-				const group = groupsMap.get(workspace.projectId);
-				if (group) {
-					let worktreePath = "";
-					if (workspace.type === "worktree" && workspace.worktreeId) {
-						worktreePath = worktreePathMap.get(workspace.worktreeId) ?? "";
-					} else if (workspace.type === "branch") {
-						worktreePath = group.project.mainRepoPath;
+				const allSections = localDb.select().from(workspaceSections).all();
+
+				const groupsMap = new Map<
+					string,
+					{
+						project: {
+							id: string;
+							name: string;
+							color: string;
+							tabOrder: number;
+							spaceId: string | null;
+							githubOwner: string | null;
+							mainRepoPath: string;
+							hideImage: boolean;
+							iconUrl: string | null;
+						};
+						workspaces: WorkspaceItem[];
+						sections: SectionItem[];
+						topLevelItems: TopLevelItem[];
 					}
+				>();
 
-					const item: WorkspaceItem = {
-						...workspace,
-						sectionId: workspace.sectionId ?? null,
-						type: workspace.type as "worktree" | "branch",
-						worktreePath,
-						isUnread: workspace.isUnread ?? false,
-						isUnnamed: workspace.isUnnamed ?? false,
-					};
+				for (const project of activeProjects) {
+					const projectSections = allSections
+						.filter((s) => s.projectId === project.id)
+						.sort((a, b) => a.tabOrder - b.tabOrder)
+						.map((s) => ({
+							id: s.id,
+							projectId: s.projectId,
+							name: s.name,
+							tabOrder: s.tabOrder,
+							isCollapsed: s.isCollapsed ?? false,
+							color: s.color ?? null,
+							workspaces: [] as WorkspaceItem[],
+						}));
 
-					if (workspace.sectionId) {
-						const section = group.sections.find(
-							(s) => s.id === workspace.sectionId,
-						);
-						if (section) {
-							section.workspaces.push(item);
+					groupsMap.set(project.id, {
+						project: {
+							id: project.id,
+							name: project.name,
+							color: project.color,
+							// biome-ignore lint/style/noNonNullAssertion: filter guarantees tabOrder is not null
+							tabOrder: project.tabOrder!,
+							spaceId: project.spaceId ?? null,
+							githubOwner: project.githubOwner ?? null,
+							mainRepoPath: project.mainRepoPath,
+							hideImage: project.hideImage ?? false,
+							iconUrl: project.iconUrl ?? null,
+						},
+						workspaces: [],
+						sections: projectSections,
+						topLevelItems: [],
+					});
+				}
+
+				const allWorkspaces = localDb
+					.select()
+					.from(workspaces)
+					.where(isNull(workspaces.deletingAt))
+					.all()
+					.sort((a, b) => a.tabOrder - b.tabOrder);
+
+				for (const workspace of allWorkspaces) {
+					const group = groupsMap.get(workspace.projectId);
+					if (group) {
+						let worktreePath = "";
+						if (workspace.type === "worktree" && workspace.worktreeId) {
+							worktreePath = worktreePathMap.get(workspace.worktreeId) ?? "";
+						} else if (workspace.type === "branch") {
+							worktreePath = group.project.mainRepoPath;
+						}
+
+						const item: WorkspaceItem = {
+							...workspace,
+							sectionId: workspace.sectionId ?? null,
+							type: workspace.type as "worktree" | "branch",
+							worktreePath,
+							isUnread: workspace.isUnread ?? false,
+							isUnnamed: workspace.isUnnamed ?? false,
+						};
+
+						if (workspace.sectionId) {
+							const section = group.sections.find(
+								(s) => s.id === workspace.sectionId,
+							);
+							if (section) {
+								section.workspaces.push(item);
+							} else {
+								// Orphan: section not found, fall back to ungrouped
+								group.workspaces.push(item);
+							}
 						} else {
-							// Orphan: section not found, fall back to ungrouped
 							group.workspaces.push(item);
 						}
-					} else {
-						group.workspaces.push(item);
 					}
 				}
-			}
 
-			return Array.from(groupsMap.values())
-				.map((group) => {
-					const projectWorkspaces = [
-						...group.workspaces,
-						...group.sections.flatMap((section) => section.workspaces),
-					];
+				return Array.from(groupsMap.values())
+					.map((group) => {
+						const projectWorkspaces = [
+							...group.workspaces,
+							...group.sections.flatMap((section) => section.workspaces),
+						];
 
-					return {
-						...group,
-						topLevelItems: getProjectChildItems(
-							group.project.id,
-							projectWorkspaces,
-							group.sections,
-						).map((item) => ({
-							id: item.id,
-							kind: item.kind,
-							tabOrder: item.tabOrder,
-						})),
-					};
-				})
-				.sort((a, b) => a.project.tabOrder - b.project.tabOrder);
-		}),
+						return {
+							...group,
+							topLevelItems: getProjectChildItems(
+								group.project.id,
+								projectWorkspaces,
+								group.sections,
+							).map((item) => ({
+								id: item.id,
+								kind: item.kind,
+								tabOrder: item.tabOrder,
+							})),
+						};
+					})
+					.sort((a, b) => a.project.tabOrder - b.project.tabOrder);
+			}),
 
 		getPreviousWorkspace: publicProcedure
 			.input(z.object({ id: z.string() }))

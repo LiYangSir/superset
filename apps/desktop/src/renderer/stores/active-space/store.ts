@@ -42,7 +42,8 @@ interface ActiveSpaceState {
 export const useActiveSpaceStore = create<ActiveSpaceState>()(
 	persist(
 		(set) => ({
-			activeSpaceId: readLastActiveSpaceId() ?? readPersistedStoreActiveSpaceId(),
+			activeSpaceId:
+				readLastActiveSpaceId() ?? readPersistedStoreActiveSpaceId(),
 			setActiveSpaceId: (id) => {
 				writeLastActiveSpaceId(id);
 				set({ activeSpaceId: id });

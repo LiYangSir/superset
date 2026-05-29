@@ -20,7 +20,7 @@ interface KanbanViewProps {
 export function KanbanView({ tasks, labels, subtaskCounts }: KanbanViewProps) {
 	const setSelectedTaskId = useTasksViewStore((s) => s.setSelectedTaskId);
 	const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
-	const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+	const [_draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
 	const utils = electronTrpc.useUtils();
 	const reorderMutation = electronTrpc.tasks.reorder.useMutation({
@@ -45,14 +45,11 @@ export function KanbanView({ tasks, labels, subtaskCounts }: KanbanViewProps) {
 		return grouped;
 	}, [tasks]);
 
-	const handleDragStart = useCallback(
-		(e: React.DragEvent, taskId: string) => {
-			setDraggedTaskId(taskId);
-			e.dataTransfer.setData("text/plain", taskId);
-			e.dataTransfer.effectAllowed = "move";
-		},
-		[],
-	);
+	const handleDragStart = useCallback((e: React.DragEvent, taskId: string) => {
+		setDraggedTaskId(taskId);
+		e.dataTransfer.setData("text/plain", taskId);
+		e.dataTransfer.effectAllowed = "move";
+	}, []);
 
 	const handleDragOver = useCallback((e: React.DragEvent) => {
 		e.preventDefault();

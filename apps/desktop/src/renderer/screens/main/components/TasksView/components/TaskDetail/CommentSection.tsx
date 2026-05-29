@@ -39,9 +39,7 @@ export function CommentSection({ taskId, comments }: CommentSectionProps) {
 
 	return (
 		<div className="space-y-2">
-			<span className="text-xs font-medium text-foreground/60">
-				Comments
-			</span>
+			<span className="text-xs font-medium text-foreground/60">Comments</span>
 
 			{comments.length > 0 && (
 				<div className="space-y-2 max-h-40 overflow-y-auto">
@@ -50,9 +48,7 @@ export function CommentSection({ taskId, comments }: CommentSectionProps) {
 							key={comment.id}
 							className="rounded-md bg-background/50 px-3 py-2"
 						>
-							<p className="text-xs text-foreground/80">
-								{comment.text}
-							</p>
+							<p className="text-xs text-foreground/80">{comment.text}</p>
 							<span className="text-[10px] text-foreground/40 mt-1 block">
 								{new Date(comment.createdAt).toLocaleString()}
 							</span>

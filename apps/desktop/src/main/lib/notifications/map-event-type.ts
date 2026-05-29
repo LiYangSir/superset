@@ -1,11 +1,12 @@
 export function mapEventType(
 	eventType: string | undefined,
-): "Start" | "Stop" | "PermissionRequest" | null {
+): "Start" | "Stop" | "PermissionRequest" | "SessionEnd" | null {
 	if (!eventType) {
 		return null;
 	}
 	if (
 		eventType === "Start" ||
+		eventType === "SessionStart" ||
 		eventType === "UserPromptSubmit" ||
 		eventType === "PostToolUse" ||
 		eventType === "PostToolUseFailure" ||
@@ -24,11 +25,13 @@ export function mapEventType(
 	) {
 		return "PermissionRequest";
 	}
+	if (eventType === "SessionEnd" || eventType === "sessionEnd") {
+		return "SessionEnd";
+	}
 	if (
 		eventType === "Stop" ||
 		eventType === "agent-turn-complete" ||
-		eventType === "AfterAgent" ||
-		eventType === "sessionEnd"
+		eventType === "AfterAgent"
 	) {
 		return "Stop";
 	}

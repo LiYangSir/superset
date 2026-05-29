@@ -33,7 +33,9 @@ function ensureTaskSubtablesExist() {
 			sort_order INTEGER NOT NULL DEFAULT 0,
 			created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
 		)`);
-		localDb.run(sql`CREATE INDEX IF NOT EXISTS task_subtasks_task_id_idx ON task_subtasks(task_id)`);
+		localDb.run(
+			sql`CREATE INDEX IF NOT EXISTS task_subtasks_task_id_idx ON task_subtasks(task_id)`,
+		);
 		localDb.run(sql`CREATE TABLE IF NOT EXISTS task_labels (
 			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL,
@@ -42,7 +44,9 @@ function ensureTaskSubtablesExist() {
 			sort_order INTEGER NOT NULL DEFAULT 0,
 			created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
 		)`);
-		localDb.run(sql`CREATE INDEX IF NOT EXISTS task_labels_org_id_idx ON task_labels(organization_id)`);
+		localDb.run(
+			sql`CREATE INDEX IF NOT EXISTS task_labels_org_id_idx ON task_labels(organization_id)`,
+		);
 		localDb.run(sql`CREATE TABLE IF NOT EXISTS task_comments (
 			id TEXT PRIMARY KEY,
 			task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
@@ -50,7 +54,9 @@ function ensureTaskSubtablesExist() {
 			text TEXT NOT NULL,
 			created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
 		)`);
-		localDb.run(sql`CREATE INDEX IF NOT EXISTS task_comments_task_id_idx ON task_comments(task_id)`);
+		localDb.run(
+			sql`CREATE INDEX IF NOT EXISTS task_comments_task_id_idx ON task_comments(task_id)`,
+		);
 		try {
 			localDb.run(sql`ALTER TABLE tasks ADD COLUMN archived_at TEXT`);
 		} catch {
@@ -83,9 +89,7 @@ export const createTasksRouter = () => {
 				];
 
 				if (input?.organizationId) {
-					conditions.push(
-						eq(tasks.organization_id, input.organizationId),
-					);
+					conditions.push(eq(tasks.organization_id, input.organizationId));
 				}
 				if (input?.status) {
 					conditions.push(eq(tasks.status, input.status));
@@ -268,10 +272,7 @@ export const createTasksRouter = () => {
 						input.patch.status === "cancelled"
 					) {
 						updateData.completed_at = now;
-					} else if (
-						input.patch.status === "in_progress" &&
-						!task.started_at
-					) {
+					} else if (input.patch.status === "in_progress" && !task.started_at) {
 						updateData.started_at = now;
 					}
 				}
@@ -292,11 +293,7 @@ export const createTasksRouter = () => {
 					.where(eq(tasks.id, input.id))
 					.run();
 
-				return localDb
-					.select()
-					.from(tasks)
-					.where(eq(tasks.id, input.id))
-					.get();
+				return localDb.select().from(tasks).where(eq(tasks.id, input.id)).get();
 			}),
 
 		delete: publicProcedure
@@ -340,12 +337,7 @@ export const createTasksRouter = () => {
 			return localDb
 				.select()
 				.from(tasks)
-				.where(
-					and(
-						isNull(tasks.deleted_at),
-						sql`archived_at IS NOT NULL`,
-					),
-				)
+				.where(and(isNull(tasks.deleted_at), sql`archived_at IS NOT NULL`))
 				.orderBy(desc(tasks.updated_at))
 				.all();
 		}),
@@ -576,10 +568,7 @@ export const createTasksRouter = () => {
 			delete: publicProcedure
 				.input(z.object({ id: z.string() }))
 				.mutation(({ input }) => {
-					localDb
-						.delete(taskLabels)
-						.where(eq(taskLabels.id, input.id))
-						.run();
+					localDb.delete(taskLabels).where(eq(taskLabels.id, input.id)).run();
 					return { success: true as const };
 				}),
 		}),

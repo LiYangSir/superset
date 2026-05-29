@@ -7,6 +7,7 @@ import { createConfigRouter } from "./config";
 import { createExternalRouter } from "./external";
 import { createFilesystemRouter } from "./filesystem";
 import { createHotkeysRouter } from "./hotkeys";
+import { createMemoryRouter } from "./memory";
 import { createMenuRouter } from "./menu";
 import { createNotificationsRouter } from "./notifications";
 import { createPermissionsRouter } from "./permissions";
@@ -16,10 +17,10 @@ import { createResourceMetricsRouter } from "./resource-metrics";
 import { createRingtoneRouter } from "./ringtone";
 import { createSettingsRouter } from "./settings";
 import { createSpacesRouter } from "./spaces";
+import { createTasksRouter } from "./tasks";
 import { createTerminalRouter } from "./terminal";
 import { createUiStateRouter } from "./ui-state";
 import { createWindowRouter } from "./window";
-import { createTasksRouter } from "./tasks";
 import { createWorkspacesRouter } from "./workspaces";
 
 export const createAppRouter = (getWindow: () => BrowserWindow | null) => {
@@ -42,6 +43,7 @@ export const createAppRouter = (getWindow: () => BrowserWindow | null) => {
 		settings: createSettingsRouter(),
 		spaces: createSpacesRouter(),
 		tasks: createTasksRouter(),
+		memory: createMemoryRouter(),
 		config: createConfigRouter(),
 		uiState: createUiStateRouter(),
 		ringtone: createRingtoneRouter(getWindow),

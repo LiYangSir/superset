@@ -8,7 +8,12 @@ interface LabelChipProps {
 	className?: string;
 }
 
-export function LabelChip({ name, color, onRemove, className }: LabelChipProps) {
+export function LabelChip({
+	name,
+	color,
+	onRemove,
+	className,
+}: LabelChipProps) {
 	return (
 		<span
 			className={cn(

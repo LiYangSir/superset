@@ -1,5 +1,5 @@
-import { cn } from "@superset/ui/utils";
 import type { SelectTask, SelectTaskLabel } from "@superset/local-db";
+import { cn } from "@superset/ui/utils";
 import { LabelChip } from "../LabelChip";
 import { PriorityBadge } from "../PriorityBadge";
 import { StatusBadge } from "../StatusBadge";

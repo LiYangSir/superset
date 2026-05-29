@@ -485,3 +485,37 @@ export const taskComments = sqliteTable(
 
 export type InsertTaskComment = typeof taskComments.$inferInsert;
 export type SelectTaskComment = typeof taskComments.$inferSelect;
+
+// =============================================================================
+// Memory - stores session summaries, coding habits, requirements
+// =============================================================================
+
+export type MemoryScope = "global" | "project";
+
+export const memories = sqliteTable(
+	"memories",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => uuidv4()),
+		content: text("content").notNull(),
+		scope: text("scope").notNull().$type<MemoryScope>(),
+		projectId: text("project_id").references(() => projects.id, {
+			onDelete: "cascade",
+		}),
+		category: text("category"),
+		createdAt: integer("created_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+		updatedAt: integer("updated_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+	},
+	(table) => [
+		index("memories_scope_idx").on(table.scope),
+		index("memories_project_id_idx").on(table.projectId),
+	],
+);
+
+export type InsertMemory = typeof memories.$inferInsert;
+export type SelectMemory = typeof memories.$inferSelect;

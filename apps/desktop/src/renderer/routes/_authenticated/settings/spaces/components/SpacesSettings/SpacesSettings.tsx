@@ -1,11 +1,7 @@
 import type { SelectSpace } from "@superset/local-db";
 import { Button } from "@superset/ui/button";
 import { Input } from "@superset/ui/input";
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from "@superset/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@superset/ui/popover";
 import { toast } from "@superset/ui/sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
@@ -26,8 +22,7 @@ function pickRandomColor(): string {
 export function SpacesSettings() {
 	const utils = electronTrpc.useUtils();
 	const { data: spaces = [] } = electronTrpc.spaces.list.useQuery();
-	const { data: counts = {} } =
-		electronTrpc.spaces.getProjectCounts.useQuery();
+	const { data: counts = {} } = electronTrpc.spaces.getProjectCounts.useQuery();
 
 	const invalidateAll = () =>
 		Promise.all([
@@ -38,11 +33,13 @@ export function SpacesSettings() {
 
 	const createSpace = electronTrpc.spaces.create.useMutation({
 		onSuccess: () => invalidateAll(),
-		onError: (err) => toast.error("Failed to create space", { description: err.message }),
+		onError: (err) =>
+			toast.error("Failed to create space", { description: err.message }),
 	});
 	const deleteSpace = electronTrpc.spaces.delete.useMutation({
 		onSuccess: () => invalidateAll(),
-		onError: (err) => toast.error("Cannot delete space", { description: err.message }),
+		onError: (err) =>
+			toast.error("Cannot delete space", { description: err.message }),
 	});
 
 	const [draftName, setDraftName] = useState("");

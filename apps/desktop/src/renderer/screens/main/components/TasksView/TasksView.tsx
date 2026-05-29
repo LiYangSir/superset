@@ -1,7 +1,7 @@
 import { Button } from "@superset/ui/button";
+import { useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { LuX } from "react-icons/lu";
-import { useNavigate } from "@tanstack/react-router";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTasksViewStore } from "renderer/stores/tasks/store";
 import { KanbanView } from "./components/KanbanView";
