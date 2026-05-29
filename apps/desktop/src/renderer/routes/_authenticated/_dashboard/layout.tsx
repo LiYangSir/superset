@@ -9,7 +9,6 @@ import { electronTrpc } from "renderer/lib/electron-trpc";
 import { ResizablePanel } from "renderer/screens/main/components/ResizablePanel";
 import { WorkspaceSidebar } from "renderer/screens/main/components/WorkspaceSidebar";
 import {
-	hasPersistedActiveSpaceId,
 	useActiveSpaceId,
 	useSetActiveSpaceId,
 } from "renderer/stores/active-space";
@@ -33,7 +32,6 @@ function DashboardLayout() {
 	const openNewWorkspaceModal = useOpenNewWorkspaceModal();
 	const activeSpaceId = useActiveSpaceId();
 	const setActiveSpaceId = useSetActiveSpaceId();
-	const shouldSyncSpaceFromWorkspaceRef = useRef(!hasPersistedActiveSpaceId());
 	// Get current workspace from route to pre-select project in new workspace modal
 	const matchRoute = useMatchRoute();
 	const currentWorkspaceMatch = matchRoute({
@@ -48,11 +46,13 @@ function DashboardLayout() {
 		{ enabled: !!currentWorkspaceId },
 	);
 
+	const prevWorkspaceSpaceIdRef = useRef<string | null>(null);
 	useEffect(() => {
-		if (!shouldSyncSpaceFromWorkspaceRef.current) return;
-		if (!currentWorkspace?.project?.spaceId) return;
-		setActiveSpaceId(currentWorkspace.project.spaceId);
-		shouldSyncSpaceFromWorkspaceRef.current = false;
+		const workspaceSpaceId = currentWorkspace?.project?.spaceId;
+		if (!workspaceSpaceId) return;
+		if (workspaceSpaceId === prevWorkspaceSpaceIdRef.current) return;
+		prevWorkspaceSpaceIdRef.current = workspaceSpaceId;
+		setActiveSpaceId(workspaceSpaceId);
 	}, [currentWorkspace?.project?.spaceId, setActiveSpaceId]);
 
 	// Space switching: fetch spaces list and grouped workspaces for active space
