@@ -51,6 +51,7 @@ interface ProjectHeaderProps {
 	isSidebarCollapsed?: boolean;
 	onToggleCollapse: () => void;
 	workspaceCount: number;
+	totalTabCount: number;
 	onNewWorkspace: () => void;
 }
 
@@ -65,6 +66,7 @@ export function ProjectHeader({
 	isSidebarCollapsed = false,
 	onToggleCollapse,
 	workspaceCount,
+	totalTabCount,
 	onNewWorkspace,
 }: ProjectHeaderProps) {
 	const utils = electronTrpc.useUtils();
@@ -256,6 +258,7 @@ export function ProjectHeader({
 							<span className="font-medium">{projectName}</span>
 							<span className="text-xs text-muted-foreground">
 								{workspaceCount} workspace{workspaceCount !== 1 ? "s" : ""}
+								{totalTabCount > 0 && ` · ${totalTabCount} tab${totalTabCount !== 1 ? "s" : ""}`}
 							</span>
 						</TooltipContent>
 					</Tooltip>
@@ -351,6 +354,17 @@ export function ProjectHeader({
 								<span className="text-xs text-muted-foreground tabular-nums font-normal">
 									({workspaceCount})
 								</span>
+								{totalTabCount > 0 && (
+									<span
+										className={cn(
+											"inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-medium tabular-nums leading-none shrink-0",
+											"bg-muted text-muted-foreground",
+										)}
+									>
+										<LuLayers className="size-2.5" />
+										{totalTabCount}
+									</span>
+								)}
 							</button>
 						)}
 

@@ -5,7 +5,7 @@ import { cn } from "@superset/ui/utils";
 import { useMatchRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { HiMiniXMark } from "react-icons/hi2";
-import { LuPanelTop } from "react-icons/lu";
+import { LuLayers } from "react-icons/lu";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useWorkspaceDeleteHandler } from "renderer/react-query/workspaces";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
@@ -366,10 +366,10 @@ export function WorkspaceListItem({
 								<span
 									className={cn(
 										"inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium tabular-nums leading-none shrink-0",
-										"bg-primary/10 text-primary",
+										"bg-muted text-muted-foreground",
 									)}
 								>
-									<LuPanelTop className="size-2.5" />
+									<LuLayers className="size-2.5" />
 									{tabCount}
 								</span>
 							)}

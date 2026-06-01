@@ -7,6 +7,7 @@ import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useReorderProjects } from "renderer/react-query/projects";
 import { useWorkspaceSidebarStore } from "renderer/stores";
 import { useOpenNewWorkspaceModal } from "renderer/stores/new-workspace-modal";
+import { useTabsStore } from "renderer/stores/tabs/store";
 import { useSectionDropZone } from "../hooks";
 import type { SidebarSection, SidebarWorkspace } from "../types";
 import { WorkspaceListItem } from "../WorkspaceListItem";
@@ -75,6 +76,19 @@ export function ProjectSection({
 	const totalWorkspaceCount =
 		workspaces.length +
 		sections.reduce((sum, s) => sum + s.workspaces.length, 0);
+
+	const projectWorkspaceIds = useMemo(() => {
+		const ids = new Set<string>();
+		for (const w of workspaces) ids.add(w.id);
+		for (const s of sections) {
+			for (const w of s.workspaces) ids.add(w.id);
+		}
+		return ids;
+	}, [workspaces, sections]);
+
+	const totalTabCount = useTabsStore((state) =>
+		state.tabs.filter((t) => projectWorkspaceIds.has(t.workspaceId)).length,
+	);
 
 	const { orderedWorkspaceIds, topLevelChildren } = useMemo(() => {
 		const topLevelWorkspacesById = new Map(
@@ -218,6 +232,7 @@ export function ProjectSection({
 					isSidebarCollapsed={isSidebarCollapsed}
 					onToggleCollapse={() => toggleProjectCollapsed(projectId)}
 					workspaceCount={totalWorkspaceCount}
+					totalTabCount={totalTabCount}
 					onNewWorkspace={handleNewWorkspace}
 				/>
 				<AnimatePresence initial={false}>
@@ -295,6 +310,7 @@ export function ProjectSection({
 				isSidebarCollapsed={isSidebarCollapsed}
 				onToggleCollapse={() => toggleProjectCollapsed(projectId)}
 				workspaceCount={totalWorkspaceCount}
+				totalTabCount={totalTabCount}
 				onNewWorkspace={handleNewWorkspace}
 			/>
 
