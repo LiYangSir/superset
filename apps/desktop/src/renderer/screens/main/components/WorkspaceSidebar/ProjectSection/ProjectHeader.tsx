@@ -42,7 +42,6 @@ interface ProjectHeaderProps {
 	projectId: string;
 	projectName: string;
 	projectColor: string;
-	githubOwner: string | null;
 	mainRepoPath: string;
 	hideImage: boolean;
 	iconUrl: string | null;
@@ -59,7 +58,6 @@ export function ProjectHeader({
 	projectId,
 	projectName,
 	projectColor,
-	githubOwner,
 	mainRepoPath,
 	hideImage,
 	iconUrl,
@@ -246,10 +244,8 @@ export function ProjectHeader({
 									)}
 								>
 									<ProjectThumbnail
-										projectId={projectId}
 										projectName={projectName}
 										projectColor={projectColor}
-										githubOwner={githubOwner}
 										iconUrl={iconUrl}
 										hideImage={hideImage}
 									/>
@@ -325,10 +321,8 @@ export function ProjectHeader({
 						{rename.isRenaming ? (
 							<div className="flex items-center gap-2 flex-1 min-w-0 py-0.5">
 								<ProjectThumbnail
-									projectId={projectId}
 									projectName={projectName}
 									projectColor={projectColor}
-									githubOwner={githubOwner}
 									hideImage={hideImage}
 									iconUrl={iconUrl}
 								/>
@@ -348,10 +342,8 @@ export function ProjectHeader({
 								className="flex items-center gap-2 flex-1 min-w-0 py-0.5 text-left cursor-pointer"
 							>
 								<ProjectThumbnail
-									projectId={projectId}
 									projectName={projectName}
 									projectColor={projectColor}
-									githubOwner={githubOwner}
 									hideImage={hideImage}
 									iconUrl={iconUrl}
 								/>

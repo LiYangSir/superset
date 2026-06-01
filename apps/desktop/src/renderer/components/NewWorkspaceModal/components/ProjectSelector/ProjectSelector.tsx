@@ -18,7 +18,6 @@ interface ProjectOption {
 	id: string;
 	name: string;
 	color: string;
-	githubOwner: string | null;
 	iconUrl: string | null;
 	hideImage: boolean | null;
 }
@@ -52,10 +51,8 @@ export function ProjectSelector({
 				<Button variant="ghost" size="sm">
 					{selectedProject && (
 						<ProjectThumbnail
-							projectId={selectedProject.id}
 							projectName={selectedProject.name}
 							projectColor={selectedProject.color}
-							githubOwner={selectedProject.githubOwner}
 							iconUrl={selectedProject.iconUrl}
 							hideImage={selectedProject.hideImage ?? false}
 						/>
@@ -82,10 +79,8 @@ export function ProjectSelector({
 									}}
 								>
 									<ProjectThumbnail
-										projectId={project.id}
 										projectName={project.name}
 										projectColor={project.color}
-										githubOwner={project.githubOwner}
 										iconUrl={project.iconUrl}
 										hideImage={project.hideImage ?? false}
 									/>
