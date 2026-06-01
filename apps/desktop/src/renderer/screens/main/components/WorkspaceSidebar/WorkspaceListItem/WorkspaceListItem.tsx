@@ -228,14 +228,17 @@ export function WorkspaceListItem({
 			? { additions: pr.additions, deletions: pr.deletions }
 			: null);
 
-	const showBranchSubtitle = isBranchWorkspace || (!!name && name !== branch);
+	const displayName =
+		name || branch || worktreePath.split("/").pop() || "Unnamed";
+	const showBranchSubtitle =
+		isBranchWorkspace || (!!name && !!branch && name !== branch);
 	const hasSubtitleRow = showBranchSubtitle || !!pr;
 
 	if (isCollapsed) {
 		return (
 			<CollapsedWorkspaceItem
 				id={id}
-				name={name}
+				name={displayName}
 				branch={branch}
 				type={type}
 				isActive={isActive}
@@ -354,7 +357,7 @@ export function WorkspaceListItem({
 										: "text-foreground/80",
 								)}
 							>
-								{isBranchWorkspace ? "local" : name || branch}
+								{isBranchWorkspace ? "local" : displayName}
 							</span>
 
 							{tabCount > 0 && (
