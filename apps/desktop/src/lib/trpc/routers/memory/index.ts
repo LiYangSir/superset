@@ -303,6 +303,203 @@ export const createMemoryRouter = () => {
 				return { success: true };
 			}),
 
+		consolidate: publicProcedure
+			.input(z.object({ projectId: z.string().optional() }))
+			.mutation(async ({ input }) => {
+				console.log("[memory] consolidate called:", { projectId: input.projectId });
+
+				const settingsRow = localDb.select().from(settings).get();
+				const apiKey =
+					settingsRow?.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
+				if (!apiKey) {
+					return { success: false, reason: "no_api_key" as const };
+				}
+				const baseUrl =
+					settingsRow?.anthropicBaseUrl || "https://api.anthropic.com";
+				const model =
+					settingsRow?.anthropicModel || "deepseek-v4-flash";
+
+				const existingMemories = localDb
+					.select()
+					.from(memories)
+					.where(
+						input.projectId
+							? or(
+									eq(memories.scope, "global"),
+									and(
+										eq(memories.scope, "project"),
+										eq(memories.projectId, input.projectId),
+									),
+								)
+							: eq(memories.scope, "global"),
+					)
+					.orderBy(desc(memories.updatedAt))
+					.all();
+
+				if (existingMemories.length === 0) {
+					return { success: true, categories: 0 };
+				}
+
+				const grouped = new Map<string, Map<string, string[]>>();
+				for (const m of existingMemories) {
+					const scope = m.scope;
+					const cat = m.category || "General";
+					if (!grouped.has(scope)) grouped.set(scope, new Map());
+					const scopeMap = grouped.get(scope)!;
+					if (!scopeMap.has(cat)) scopeMap.set(cat, []);
+					scopeMap.get(cat)!.push(m.content);
+				}
+
+				const sections: string[] = [];
+				const globalCats = grouped.get("global");
+				if (globalCats) {
+					sections.push("## Global (user-level)");
+					for (const [cat, items] of globalCats) {
+						sections.push(`### ${cat}`);
+						for (const item of items) {
+							sections.push(`- ${item}`);
+						}
+					}
+				}
+				const projectCats = grouped.get("project");
+				if (projectCats) {
+					sections.push("## Project-level");
+					for (const [cat, items] of projectCats) {
+						sections.push(`### ${cat}`);
+						for (const item of items) {
+							sections.push(`- ${item}`);
+						}
+					}
+				}
+
+				try {
+					const response = await fetch(`${baseUrl}/v1/messages`, {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							"x-api-key": apiKey,
+							"anthropic-version": "2023-06-01",
+							"User-Agent": "claude-cli/2.1.44 (external, sdk-cli)",
+						},
+						body: JSON.stringify({
+							model,
+							max_tokens: 4096,
+							messages: [
+								{
+									role: "user",
+									content: `You reorganize a memory system. Below are all existing memories. Your job: consolidate them into ONE entry per category per scope. Merge duplicates, remove outdated info, and produce clean bullet-point lists.
+
+There are two scopes:
+- "global": User profile — coding preferences, communication style, workflow habits, tools, expertise, role, general preferences.
+- "project": Project-specific — tech stack, architecture decisions, naming conventions, requirements, team conventions.
+
+Existing memories:
+${sections.join("\n")}
+
+Return a JSON array. Each object represents ONE category entry:
+- "category": string (the category label)
+- "scope": "global" | "project"
+- "content": string (consolidated bullet list, each item on its own line prefixed with "- ")
+
+Rules:
+- ONE entry per category per scope
+- Merge semantically duplicate items into one bullet
+- Remove clearly outdated or contradicted observations
+- Preserve all unique, valuable information
+- Do NOT wrap the JSON in markdown code fences`,
+								},
+							],
+						}),
+					});
+
+					if (!response.ok) {
+						const errBody = await response.text().catch(() => "");
+						console.log("[memory] consolidate API error:", response.status, errBody.slice(0, 200));
+						return { success: false, reason: "api_error" as const };
+					}
+
+					const data = (await response.json()) as {
+						content: Array<{ type: string; text?: string }>;
+					};
+					const text = data.content
+						?.find((c) => c.type === "text")
+						?.text?.trim();
+
+					if (!text) {
+						return { success: false, reason: "empty_response" as const };
+					}
+
+					const jsonMatch = text.match(/\[[\s\S]*\]/);
+					if (!jsonMatch) {
+						console.log("[memory] consolidate: no JSON found:", text.slice(0, 300));
+						return { success: false, reason: "no_json" as const };
+					}
+
+					const parsed = JSON.parse(jsonMatch[0]) as Array<{
+						category?: string;
+						scope?: "global" | "project";
+						content?: string;
+					}>;
+
+					const validScopes = new Set(["global", "project"]);
+					const validItems = parsed.filter(
+						(item) =>
+							item.content &&
+							typeof item.content === "string" &&
+							item.category &&
+							typeof item.category === "string" &&
+							item.scope &&
+							validScopes.has(item.scope),
+					);
+
+					if (validItems.length === 0) {
+						return { success: true, categories: 0 };
+					}
+
+					const hasGlobal = validItems.some((i) => i.scope === "global");
+					const hasProject = validItems.some((i) => i.scope === "project");
+
+					if (hasGlobal) {
+						localDb.delete(memories).where(eq(memories.scope, "global")).run();
+					}
+					if (hasProject && input.projectId) {
+						localDb
+							.delete(memories)
+							.where(
+								and(
+									eq(memories.scope, "project"),
+									eq(memories.projectId, input.projectId),
+								),
+							)
+							.run();
+					}
+
+					for (const item of validItems) {
+						const itemProjectId =
+							item.scope === "project" ? input.projectId || null : null;
+						if (item.scope === "project" && !itemProjectId) continue;
+						localDb
+							.insert(memories)
+							.values({
+								content: item.content!,
+								scope: item.scope!,
+								projectId: itemProjectId,
+								category: item.category!,
+							})
+							.run();
+					}
+
+					if (hasGlobal) regenerateGlobalMemoryFile();
+					if (hasProject && input.projectId) regenerateProjectMemoryFile(input.projectId);
+
+					console.log("[memory] consolidate complete:", { categories: validItems.length });
+					return { success: true, categories: validItems.length };
+				} catch (error) {
+					console.error("[memory] consolidate failed:", error);
+					return { success: false, reason: "exception" as const };
+				}
+			}),
+
 		summarizeSession: publicProcedure
 			.input(
 				z.object({
@@ -370,34 +567,40 @@ export const createMemoryRouter = () => {
 					.orderBy(desc(memories.updatedAt))
 					.all();
 
-				const memoriesToInclude = existingMemories.slice(0, 50);
 				let existingMemoriesSection = "";
-				if (memoriesToInclude.length > 0) {
-					const globalMems = memoriesToInclude.filter(
-						(m) => m.scope === "global",
-					);
-					const projectMems = memoriesToInclude.filter(
-						(m) => m.scope === "project",
-					);
+				if (existingMemories.length > 0) {
+					const grouped = new Map<string, Map<string, string[]>>();
+					for (const m of existingMemories) {
+						const scope = m.scope;
+						const cat = m.category || "General";
+						if (!grouped.has(scope)) grouped.set(scope, new Map());
+						const scopeMap = grouped.get(scope)!;
+						if (!scopeMap.has(cat)) scopeMap.set(cat, []);
+						scopeMap.get(cat)!.push(m.content);
+					}
 
 					const sections: string[] = [];
-					if (globalMems.length > 0) {
-						sections.push("User Profile (global):");
-						for (const m of globalMems) {
-							sections.push(
-								`  - [id: ${m.id}] (${m.category || "General"}): ${m.content}`,
-							);
+					const globalCats = grouped.get("global");
+					if (globalCats) {
+						sections.push("## Global (user-level)");
+						for (const [cat, items] of globalCats) {
+							sections.push(`### ${cat}`);
+							for (const item of items) {
+								sections.push(`- ${item}`);
+							}
 						}
 					}
-					if (projectMems.length > 0) {
-						sections.push("Project-specific:");
-						for (const m of projectMems) {
-							sections.push(
-								`  - [id: ${m.id}] (${m.category || "General"}): ${m.content}`,
-							);
+					const projectCats = grouped.get("project");
+					if (projectCats) {
+						sections.push("## Project-level");
+						for (const [cat, items] of projectCats) {
+							sections.push(`### ${cat}`);
+							for (const item of items) {
+								sections.push(`- ${item}`);
+							}
 						}
 					}
-					existingMemoriesSection = `\n\nExisting memories (do NOT duplicate these):\n${sections.join("\n")}\n`;
+					existingMemoriesSection = `\n\nExisting memories:\n${sections.join("\n")}\n`;
 				}
 
 				try {
@@ -411,46 +614,41 @@ export const createMemoryRouter = () => {
 						},
 						body: JSON.stringify({
 							model,
-							max_tokens: 2048,
+							max_tokens: 4096,
 							messages: [
 								{
 									role: "user",
-									content: `You analyze coding session transcripts and manage a memory system. Extract observations that would be useful for future sessions.
+									content: `You reorganize a memory system. You receive all existing memories and a new session transcript. Your job: produce a COMPLETE, reorganized set of memories. Each category should contain ONE consolidated bullet-point list. Merge duplicates, remove outdated info, and integrate any new observations from the transcript.
 
-There are two scopes of memory:
-- "global": User profile — coding preferences, communication style, workflow habits, tools, expertise, role, and general preferences. These travel across ALL projects.
+There are two scopes:
+- "global": User profile — coding preferences, communication style, workflow habits, tools, expertise, role, general preferences. These travel across ALL projects.
 - "project": Project-specific — tech stack, architecture decisions, naming conventions, requirements, team conventions, patterns unique to this project.
 
-When in doubt, prefer "global" for anything about the USER (who they are, how they work, how they communicate) and "project" for anything about the CODEBASE (how it's built, what it requires, team agreements).
+Suggested categories (use these or another fitting label):
+- "Coding Preferences": language, framework, naming conventions, code style
+- "Communication Style": preferred language, reply verbosity, interaction mode
+- "Workflow": common tools, Git habits, development process
+- "Project Context": tech stack, architecture decisions, team conventions
+- "Profile": role, responsibilities, goals, focus areas
+- "Patterns": recurring code patterns, abstractions, idioms
+- "Requirements": project constraints, acceptance criteria
 ${existingMemoriesSection}
-For each observation, decide the appropriate action:
-- "create": New observation not covered by any existing memory
-- "update": An existing memory should be refined, corrected, or expanded (provide "existingId")
-- "delete": An existing memory is outdated, wrong, or superseded (provide "existingId")
+New session transcript:
+${transcript}
 
-Return a JSON array. Each object must have:
-- "action": one of "create", "update", "delete"
-- "content": the memory text (1-2 sentences). Required for "create" and "update".
-- "scope": one of "global", "project". Required for "create". Determines where the memory is stored.
-- "category": a human-readable label. Required for "create", optional for "update". Suggested categories:
-  - "Coding Preferences": language, framework, naming conventions, code style
-  - "Communication Style": preferred language, reply verbosity, interaction mode
-  - "Workflow": common tools, Git habits, development process
-  - "Project Context": tech stack, architecture decisions, team conventions
-  - "Profile": role, responsibilities, goals, focus areas
-  - "Patterns": recurring code patterns, abstractions, idioms
-  - "Requirements": project constraints, acceptance criteria
-  - Or another fitting label.
-- "existingId": the id of the existing memory to update or delete. Required for "update" and "delete".
+Return a JSON array. Each object represents ONE category entry:
+- "category": string (the category label)
+- "scope": "global" | "project"
+- "content": string (consolidated bullet list, each item on its own line prefixed with "- ")
 
 Rules:
-- Do NOT create a memory if an existing one already covers the same thing.
-- Prefer "update" over "create"+"delete" when refining an observation.
-- User profile changes (e.g. preferred language, expertise, habits) MUST use scope "global".
-- Only include genuinely useful observations. Return [] if nothing noteworthy.
-
-Session transcript:
-${transcript}`,
+- ONE entry per category per scope — consolidate all related items into a single content string
+- When in doubt: user preferences/habits → "global", codebase specifics → "project"
+- Merge semantically duplicate items into one bullet
+- Remove clearly outdated or contradicted observations
+- If nothing noteworthy from the transcript, return existing memories reorganized (still consolidate duplicates)
+- Return [] only if there truly are no memories worth keeping
+- Do NOT wrap the JSON in markdown code fences`,
 								},
 							],
 						}),
@@ -484,126 +682,81 @@ ${transcript}`,
 					}
 
 					const parsed = JSON.parse(jsonMatch[0]) as Array<{
-						action?: "create" | "update" | "delete";
-						content?: string;
 						category?: string;
 						scope?: "global" | "project";
-						existingId?: string;
+						content?: string;
 					}>;
 
-					console.log("[memory] Parsed items:", JSON.stringify(parsed));
+					console.log("[memory] Parsed categories:", parsed.length);
 
 					if (!Array.isArray(parsed) || parsed.length === 0) {
-						console.log("[memory] No memories extracted from session");
-						return { success: true, created: 0, updated: 0, deleted: 0 };
+						console.log("[memory] No memories returned from reorganization");
+						return { success: true, categories: 0 };
 					}
 
-					const existingIds = new Set(existingMemories.map((m) => m.id));
-					const validActions = new Set(["create", "update", "delete"]);
 					const validScopes = new Set(["global", "project"]);
+					const validItems = parsed.filter(
+						(item) =>
+							item.content &&
+							typeof item.content === "string" &&
+							item.category &&
+							typeof item.category === "string" &&
+							item.scope &&
+							validScopes.has(item.scope),
+					);
 
-					const validItems = parsed.filter((item) => {
-						const action = item.action || "create";
-						if (!validActions.has(action)) return false;
-						if (
-							action === "create" &&
-							(!item.content || typeof item.content !== "string")
-						)
-							return false;
-						if (
-							action === "update" &&
-							(!item.existingId ||
-								!existingIds.has(item.existingId) ||
-								!item.content)
-						)
-							return false;
-						if (
-							action === "delete" &&
-							(!item.existingId || !existingIds.has(item.existingId))
-						)
-							return false;
-						return true;
-					});
+					if (validItems.length === 0) {
+						console.log("[memory] No valid items after filtering");
+						return { success: true, categories: 0 };
+					}
 
-					let created = 0;
-					let updated = 0;
-					let deleted = 0;
-					let touchedGlobal = false;
-					let touchedProject = false;
+					const hasGlobal = validItems.some((i) => i.scope === "global");
+					const hasProject = validItems.some((i) => i.scope === "project");
+
+					if (hasGlobal) {
+						localDb
+							.delete(memories)
+							.where(eq(memories.scope, "global"))
+							.run();
+					}
+					if (hasProject && projectId) {
+						localDb
+							.delete(memories)
+							.where(
+								and(
+									eq(memories.scope, "project"),
+									eq(memories.projectId, projectId),
+								),
+							)
+							.run();
+					}
 
 					for (const item of validItems) {
-						const action = item.action || "create";
-						switch (action) {
-							case "create": {
-								const itemScope =
-									item.scope && validScopes.has(item.scope)
-										? item.scope
-										: "global";
-								const itemProjectId =
-									itemScope === "project" ? projectId || null : null;
-								localDb
-									.insert(memories)
-									.values({
-										content: item.content!,
-										scope: itemScope,
-										projectId: itemProjectId,
-										category: item.category || null,
-									})
-									.run();
-								if (itemScope === "global") touchedGlobal = true;
-								else touchedProject = true;
-								created++;
-								break;
-							}
-							case "update": {
-								const existing = existingMemories.find(
-									(m) => m.id === item.existingId,
-								);
-								localDb
-									.update(memories)
-									.set({
-										content: item.content!,
-										...(item.category !== undefined
-											? { category: item.category }
-											: {}),
-										updatedAt: Date.now(),
-									})
-									.where(eq(memories.id, item.existingId!))
-									.run();
-								if (existing?.scope === "global") touchedGlobal = true;
-								else touchedProject = true;
-								updated++;
-								break;
-							}
-							case "delete": {
-								const existing = existingMemories.find(
-									(m) => m.id === item.existingId,
-								);
-								localDb
-									.delete(memories)
-									.where(eq(memories.id, item.existingId!))
-									.run();
-								if (existing?.scope === "global") touchedGlobal = true;
-								else touchedProject = true;
-								deleted++;
-								break;
-							}
-						}
+						const itemProjectId =
+							item.scope === "project" ? projectId || null : null;
+						if (item.scope === "project" && !itemProjectId) continue;
+						localDb
+							.insert(memories)
+							.values({
+								content: item.content!,
+								scope: item.scope!,
+								projectId: itemProjectId,
+								category: item.category!,
+							})
+							.run();
 					}
 
-					if (touchedGlobal) {
+					if (hasGlobal) {
 						regenerateGlobalMemoryFile();
 					}
-					if (touchedProject && projectId) {
+					if (hasProject && projectId) {
 						regenerateProjectMemoryFile(projectId);
 					}
 
 					console.log("[memory] summarizeSession complete:", {
-						created,
-						updated,
-						deleted,
+						categories: validItems.length,
 					});
-					return { success: true, created, updated, deleted };
+					return { success: true, categories: validItems.length };
 				} catch (error) {
 					console.error("[memory] Summarization failed:", error);
 					return { success: false, reason: "exception" as const };
