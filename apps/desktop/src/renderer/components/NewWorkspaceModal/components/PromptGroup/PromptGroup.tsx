@@ -604,7 +604,7 @@ export function PromptGroup({
 					openExternalWorktreeMutation.mutateAsync({
 						projectId,
 						worktreePath: action.worktreePath,
-						branch: "",
+						branch: action.branch,
 					}),
 					{
 						loading: "Importing worktree...",

@@ -99,6 +99,7 @@ export interface UseTerminalLifecycleOptions {
 	>;
 	handleUrlClickRef: MutableRefObject<((url: string) => void) | undefined>;
 	paneInitialCwdRef: MutableRefObject<string | undefined>;
+	paneInitialCommandRef: MutableRefObject<string | undefined>;
 	clearPaneInitialDataRef: MutableRefObject<(paneId: string) => void>;
 	setConnectionError: (error: string | null) => void;
 	setExitStatus: (status: "killed" | "exited" | null) => void;
@@ -159,6 +160,7 @@ export function useTerminalLifecycle({
 	handleFileLinkClickRef,
 	handleUrlClickRef,
 	paneInitialCwdRef,
+	paneInitialCommandRef,
 	clearPaneInitialDataRef,
 	setConnectionError,
 	setExitStatus,
@@ -364,6 +366,7 @@ export function useTerminalLifecycle({
 		};
 
 		const initialCwd = paneInitialCwdRef.current;
+		const initialCommand = paneInitialCommandRef.current;
 
 		const cancelInitialAttach = scheduleTerminalAttach({
 			paneId,
@@ -408,6 +411,13 @@ export function useTerminalLifecycle({
 								if (!isAttachActive()) return;
 								setConnectionError(null);
 								clearPaneInitialDataRef.current(paneId);
+
+								if (initialCommand && !result.isColdRestore) {
+									writeRef.current({
+										paneId,
+										data: `${initialCommand}\n`,
+									});
+								}
 
 								const storedColdRestore = coldRestoreState.get(paneId);
 								if (storedColdRestore?.isRestored) {

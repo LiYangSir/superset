@@ -135,6 +135,7 @@ export interface Pane {
 	isNew?: boolean;
 	status?: PaneStatus;
 	initialCwd?: string;
+	initialCommand?: string;
 	url?: string; // For webview panes
 	cwd?: string | null; // Current working directory
 	cwdConfirmed?: boolean; // True if cwd confirmed via OSC-7, false if seeded

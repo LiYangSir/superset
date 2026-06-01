@@ -46,10 +46,12 @@ export interface TabsState extends Omit<BaseTabsState, "tabs"> {
  */
 export interface AddTabOptions {
 	initialCwd?: string;
+	initialCommand?: string;
 }
 
 export interface SplitPaneOptions {
 	initialCwd?: string;
+	initialCommand?: string;
 	paneType?: "terminal" | "chat-mastra" | "webview";
 }
 

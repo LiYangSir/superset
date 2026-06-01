@@ -743,6 +743,11 @@ export const createCreateProcedures = () => {
 					throw new Error("Worktree no longer exists on disk");
 				}
 
+				const branch =
+					input.branch ||
+					(await getCurrentBranch(input.worktreePath)) ||
+					"";
+
 				const existingWorktree = localDb
 					.select()
 					.from(worktrees)
@@ -850,10 +855,10 @@ export const createCreateProcedures = () => {
 					.values({
 						projectId: input.projectId,
 						path: input.worktreePath,
-						branch: input.branch,
+						branch,
 						baseBranch,
 						gitStatus: {
-							branch: input.branch,
+							branch,
 							needsRebase: false,
 							ahead: 0,
 							behind: 0,
@@ -870,8 +875,8 @@ export const createCreateProcedures = () => {
 						projectId: input.projectId,
 						worktreeId: worktree.id,
 						type: "worktree",
-						branch: input.branch,
-						name: input.branch,
+						branch,
+						name: branch,
 						tabOrder: maxTabOrder + 1,
 					})
 					.returning()

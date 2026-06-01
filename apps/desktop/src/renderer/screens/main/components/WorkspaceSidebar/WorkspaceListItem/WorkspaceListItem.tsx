@@ -229,7 +229,9 @@ export function WorkspaceListItem({
 			: null);
 
 	const displayName =
-		name || branch || worktreePath.split("/").pop() || "Unnamed";
+		type === "worktree"
+			? branch || name || "Unnamed"
+			: name || branch || "Unnamed";
 	const showBranchSubtitle =
 		isBranchWorkspace || (!!name && !!branch && name !== branch);
 	const hasSubtitleRow = showBranchSubtitle || !!pr;

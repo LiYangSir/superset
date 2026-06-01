@@ -4,11 +4,9 @@ import {
 } from "@superset/local-db/schema/zod";
 import { useCallback, useMemo } from "react";
 import type { MosaicBranch } from "react-mosaic-component";
-import { useCreateOrAttachWithTheme } from "renderer/hooks/useCreateOrAttachWithTheme";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import {
 	buildTerminalCommand,
-	launchCommandInPane,
 	writeCommandsInPane,
 } from "renderer/lib/terminal/launch-command";
 import {
@@ -30,13 +28,6 @@ interface PreparedPreset {
 	commands: string[];
 	initialCwd?: string;
 	name?: string;
-}
-
-interface PresetPaneLaunch {
-	paneId: string;
-	tabId: string;
-	workspaceId: string;
-	command: string;
 }
 
 function preparePreset(preset: TerminalPreset): PreparedPreset {
@@ -62,7 +53,6 @@ export function useTabsWithPresets() {
 	const storeSplitPaneHorizontal = useTabsStore((s) => s.splitPaneHorizontal);
 	const storeSplitPaneAuto = useTabsStore((s) => s.splitPaneAuto);
 	const renameTab = useTabsStore((s) => s.renameTab);
-	const createOrAttach = useCreateOrAttachWithTheme();
 	const writeToTerminal = electronTrpc.terminal.write.useMutation();
 
 	const firstPreset = newTabPresets[0] ?? null;
@@ -75,8 +65,9 @@ export function useTabsWithPresets() {
 		if (!firstPreset) return undefined;
 		return {
 			initialCwd: firstPreset.cwd || undefined,
+			initialCommand: firstPresetCommand ?? undefined,
 		};
-	}, [firstPreset]);
+	}, [firstPreset, firstPresetCommand]);
 
 	const applyTabName = useCallback(
 		(tabId: string, name?: string) => {
@@ -97,102 +88,25 @@ export function useTabsWithPresets() {
 		});
 	}, []);
 
-	const launchPresetCommand = useCallback(
-		({ paneId, tabId, workspaceId, command }: PresetPaneLaunch) => {
-			void launchCommandInPane({
-				paneId,
-				tabId,
-				workspaceId,
-				command,
-				createOrAttach: (input) => createOrAttach.mutateAsync(input),
-				write: (input) => writeToTerminal.mutateAsync(input),
-			}).catch((error) => {
-				console.error("[useTabsWithPresets] Failed to launch preset command:", {
-					paneId,
-					tabId,
-					workspaceId,
-					error: error instanceof Error ? error.message : String(error),
-				});
-			});
-		},
-		[createOrAttach, writeToTerminal],
-	);
-
-	const launchPresetCommands = useCallback(
-		(launches: PresetPaneLaunch[]) => {
-			for (const launch of launches) {
-				launchPresetCommand(launch);
-			}
-		},
-		[launchPresetCommand],
-	);
-
-	const resolveWorkspaceIdForTab = useCallback((tabId: string) => {
-		const tab = useTabsStore
-			.getState()
-			.tabs.find((tabItem) => tabItem.id === tabId);
-		return tab?.workspaceId ?? null;
-	}, []);
-
-	const launchFirstPresetInPane = useCallback(
-		(tabId: string, paneId: string) => {
-			if (firstPresetCommand === null) return;
-			const workspaceId = resolveWorkspaceIdForTab(tabId);
-			if (!workspaceId) return;
-			launchPresetCommand({
-				paneId,
-				tabId,
-				workspaceId,
-				command: firstPresetCommand,
-			});
-		},
-		[firstPresetCommand, launchPresetCommand, resolveWorkspaceIdForTab],
-	);
-
-	const launchFirstPresetInFocusedPane = useCallback(
-		(tabId: string, previousFocusedPaneId: string | undefined) => {
-			if (firstPresetCommand === null) return;
-			const state = useTabsStore.getState();
-			const paneId = state.focusedPaneIds[tabId];
-			if (!paneId || paneId === previousFocusedPaneId) return;
-			const tab = state.tabs.find((tabItem) => tabItem.id === tabId);
-			if (!tab) return;
-			launchPresetCommand({
-				paneId,
-				tabId,
-				workspaceId: tab.workspaceId,
-				command: firstPresetCommand,
-			});
-		},
-		[firstPresetCommand, launchPresetCommand],
-	);
-
 	const executePresetInNewTab = useCallback(
 		(workspaceId: string, preset: PreparedPreset) => {
 			const hasMultipleCommands = preset.commands.length > 1;
 
 			if (preset.mode === "new-tab" && hasMultipleCommands) {
 				let firstResult: { tabId: string; paneId: string } | null = null;
-				const launches: PresetPaneLaunch[] = [];
 
 				for (const command of preset.commands) {
 					const result = storeAddTab(workspaceId, {
 						initialCwd: preset.initialCwd,
+						initialCommand: command,
 					});
 					if (!firstResult) {
 						firstResult = result;
 					}
-					launches.push({
-						paneId: result.paneId,
-						tabId: result.tabId,
-						workspaceId,
-						command,
-					});
 					applyTabName(result.tabId, preset.name);
 				}
 
 				if (firstResult) {
-					launchPresetCommands(launches);
 					return firstResult;
 				}
 
@@ -208,14 +122,6 @@ export function useTabsWithPresets() {
 					commands: preset.commands,
 					initialCwd: preset.initialCwd,
 				});
-				const launches: PresetPaneLaunch[] = multiPane.paneIds.flatMap(
-					(paneId, index) => {
-						const command = preset.commands[index];
-						if (command === undefined) return [];
-						return [{ paneId, tabId: multiPane.tabId, workspaceId, command }];
-					},
-				);
-				launchPresetCommands(launches);
 				applyTabName(multiPane.tabId, preset.name);
 				return { tabId: multiPane.tabId, paneId: multiPane.paneIds[0] };
 			}
@@ -223,25 +129,12 @@ export function useTabsWithPresets() {
 			const command = buildTerminalCommand(preset.commands);
 			const result = storeAddTab(workspaceId, {
 				initialCwd: preset.initialCwd,
+				initialCommand: command ?? undefined,
 			});
-			if (command !== null) {
-				launchPresetCommand({
-					paneId: result.paneId,
-					tabId: result.tabId,
-					workspaceId,
-					command,
-				});
-			}
 			applyTabName(result.tabId, preset.name);
 			return result;
 		},
-		[
-			storeAddTab,
-			storeAddTabWithMultiplePanes,
-			applyTabName,
-			launchPresetCommand,
-			launchPresetCommands,
-		],
+		[storeAddTab, storeAddTabWithMultiplePanes, applyTabName],
 	);
 
 	const executePreset = useCallback(
@@ -264,14 +157,6 @@ export function useTabsWithPresets() {
 					initialCwd: preset.initialCwd,
 				});
 				if (paneIds.length > 0) {
-					const launches: PresetPaneLaunch[] = paneIds.flatMap(
-						(paneId, index) => {
-							const command = preset.commands[index];
-							if (command === undefined) return [];
-							return [{ paneId, tabId: activeTabId, workspaceId, command }];
-						},
-					);
-					launchPresetCommands(launches);
 					return { tabId: activeTabId, paneId: paneIds[0] };
 				}
 				return executePresetInNewTab(workspaceId, preset);
@@ -281,16 +166,9 @@ export function useTabsWithPresets() {
 				const command = buildTerminalCommand(preset.commands);
 				const paneId = storeAddPane(activeTabId, {
 					initialCwd: preset.initialCwd,
+					initialCommand: command ?? undefined,
 				});
 				if (paneId) {
-					if (command !== null) {
-						launchPresetCommand({
-							paneId,
-							tabId: activeTabId,
-							workspaceId,
-							command,
-						});
-					}
 					return { tabId: activeTabId, paneId };
 				}
 				return executePresetInNewTab(workspaceId, preset);
@@ -303,8 +181,6 @@ export function useTabsWithPresets() {
 			storeAddPanesToTab,
 			storeAddPane,
 			executePresetInNewTab,
-			launchPresetCommands,
-			launchPresetCommand,
 		],
 	);
 
@@ -382,13 +258,9 @@ export function useTabsWithPresets() {
 			if (options) {
 				return storeAddPane(tabId, options);
 			}
-			const paneId = storeAddPane(tabId, firstPresetOptions);
-			if (paneId) {
-				launchFirstPresetInPane(tabId, paneId);
-			}
-			return paneId;
+			return storeAddPane(tabId, firstPresetOptions);
 		},
-		[storeAddPane, firstPresetOptions, launchFirstPresetInPane],
+		[storeAddPane, firstPresetOptions],
 	);
 
 	const splitPaneVertical = useCallback(
@@ -401,16 +273,9 @@ export function useTabsWithPresets() {
 			if (options) {
 				return storeSplitPaneVertical(tabId, sourcePaneId, path, options);
 			}
-			const previousFocusedPaneId =
-				useTabsStore.getState().focusedPaneIds[tabId];
 			storeSplitPaneVertical(tabId, sourcePaneId, path, firstPresetOptions);
-			launchFirstPresetInFocusedPane(tabId, previousFocusedPaneId);
 		},
-		[
-			storeSplitPaneVertical,
-			firstPresetOptions,
-			launchFirstPresetInFocusedPane,
-		],
+		[storeSplitPaneVertical, firstPresetOptions],
 	);
 
 	const splitPaneHorizontal = useCallback(
@@ -423,16 +288,9 @@ export function useTabsWithPresets() {
 			if (options) {
 				return storeSplitPaneHorizontal(tabId, sourcePaneId, path, options);
 			}
-			const previousFocusedPaneId =
-				useTabsStore.getState().focusedPaneIds[tabId];
 			storeSplitPaneHorizontal(tabId, sourcePaneId, path, firstPresetOptions);
-			launchFirstPresetInFocusedPane(tabId, previousFocusedPaneId);
 		},
-		[
-			storeSplitPaneHorizontal,
-			firstPresetOptions,
-			launchFirstPresetInFocusedPane,
-		],
+		[storeSplitPaneHorizontal, firstPresetOptions],
 	);
 
 	const splitPaneAuto = useCallback(
@@ -452,8 +310,6 @@ export function useTabsWithPresets() {
 					options,
 				);
 			}
-			const previousFocusedPaneId =
-				useTabsStore.getState().focusedPaneIds[tabId];
 			storeSplitPaneAuto(
 				tabId,
 				sourcePaneId,
@@ -461,9 +317,8 @@ export function useTabsWithPresets() {
 				path,
 				firstPresetOptions,
 			);
-			launchFirstPresetInFocusedPane(tabId, previousFocusedPaneId);
 		},
-		[storeSplitPaneAuto, firstPresetOptions, launchFirstPresetInFocusedPane],
+		[storeSplitPaneAuto, firstPresetOptions],
 	);
 
 	return {

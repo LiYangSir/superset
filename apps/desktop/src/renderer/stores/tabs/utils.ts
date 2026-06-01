@@ -145,6 +145,7 @@ export const getPaneIdsInVisualOrder = extractPaneIdsFromLayout;
  */
 export interface CreatePaneOptions {
 	initialCwd?: string;
+	initialCommand?: string;
 }
 
 /**
@@ -164,6 +165,7 @@ export const createPane = (
 		name: "Terminal",
 		isNew: true,
 		initialCwd: options?.initialCwd,
+		initialCommand: options?.initialCommand,
 	};
 };
 

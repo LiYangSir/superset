@@ -20,6 +20,7 @@ export interface UseTerminalRefsOptions {
 	focusedPaneId: string | undefined;
 	terminalTheme: ITheme | null;
 	paneInitialCwd?: string;
+	paneInitialCommand?: string;
 	clearPaneInitialData: (paneId: string) => void;
 	workspaceCwd: string | null | undefined;
 	handleFileLinkClick: (path: string, line?: number, column?: number) => void;
@@ -32,6 +33,7 @@ export interface UseTerminalRefsReturn {
 	isFocusedRef: MutableRefObject<boolean>;
 	initialThemeRef: MutableRefObject<ITheme | null>;
 	paneInitialCwdRef: MutableRefObject<string | undefined>;
+	paneInitialCommandRef: MutableRefObject<string | undefined>;
 	clearPaneInitialDataRef: MutableRefObject<(paneId: string) => void>;
 	workspaceCwdRef: MutableRefObject<string | null>;
 	handleFileLinkClickRef: MutableRefObject<
@@ -55,6 +57,7 @@ export function useTerminalRefs({
 	focusedPaneId,
 	terminalTheme,
 	paneInitialCwd,
+	paneInitialCommand,
 	clearPaneInitialData,
 	workspaceCwd,
 	handleFileLinkClick,
@@ -67,8 +70,10 @@ export function useTerminalRefs({
 	isFocusedRef.current = isFocused;
 
 	const paneInitialCwdRef = useRef(paneInitialCwd);
+	const paneInitialCommandRef = useRef(paneInitialCommand);
 	const clearPaneInitialDataRef = useRef(clearPaneInitialData);
 	paneInitialCwdRef.current = paneInitialCwd;
+	paneInitialCommandRef.current = paneInitialCommand;
 	clearPaneInitialDataRef.current = clearPaneInitialData;
 
 	const workspaceCwdRef = useRef<string | null>(workspaceCwd ?? null);
@@ -115,6 +120,7 @@ export function useTerminalRefs({
 		isFocusedRef,
 		initialThemeRef,
 		paneInitialCwdRef,
+		paneInitialCommandRef,
 		clearPaneInitialDataRef,
 		workspaceCwdRef,
 		handleFileLinkClickRef,

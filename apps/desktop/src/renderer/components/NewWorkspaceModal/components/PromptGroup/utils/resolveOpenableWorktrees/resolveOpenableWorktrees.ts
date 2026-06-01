@@ -14,7 +14,7 @@ export interface ExternalWorktree {
 
 export type OpenableWorktreeAction =
 	| { type: "tracked"; worktreeId: string }
-	| { type: "external"; worktreePath: string };
+	| { type: "external"; worktreePath: string; branch: string };
 
 export function resolveOpenableWorktrees(
 	trackedWorktrees: TrackedWorktree[],
@@ -28,6 +28,7 @@ export function resolveOpenableWorktrees(
 		result.set(wt.branch, {
 			type: "external",
 			worktreePath: wt.path,
+			branch: wt.branch,
 		});
 	}
 

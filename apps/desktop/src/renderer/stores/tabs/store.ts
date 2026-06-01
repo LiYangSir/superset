@@ -209,9 +209,10 @@ export const useTabsStore = create<TabsStore>()(
 					const state = get();
 					const tabId = generateId("tab");
 					const panes: ReturnType<typeof createPane>[] = options.commands.map(
-						(_command) =>
+						(command) =>
 							createPane(tabId, "terminal", {
 								initialCwd: options.initialCwd,
+								initialCommand: command,
 							}),
 					);
 
@@ -583,9 +584,10 @@ export const useTabsStore = create<TabsStore>()(
 					if (!tab) return [];
 
 					const panes: ReturnType<typeof createPane>[] = options.commands.map(
-						(_command) =>
+						(command) =>
 							createPane(tabId, "terminal", {
 								initialCwd: options.initialCwd,
+								initialCommand: command,
 							}),
 					);
 
@@ -1186,7 +1188,10 @@ export const useTabsStore = create<TabsStore>()(
 					set((state) => {
 						const pane = state.panes[paneId];
 						if (!pane) return state;
-						if (pane.initialCwd === undefined) {
+						if (
+							pane.initialCwd === undefined &&
+							pane.initialCommand === undefined
+						) {
 							return state;
 						}
 						return {
@@ -1195,6 +1200,7 @@ export const useTabsStore = create<TabsStore>()(
 								[paneId]: {
 									...pane,
 									initialCwd: undefined,
+									initialCommand: undefined,
 								},
 							},
 						};
