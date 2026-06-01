@@ -17,8 +17,10 @@ import {
 } from "@superset/ui/select";
 import { Separator } from "@superset/ui/separator";
 import { Textarea } from "@superset/ui/textarea";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
+	HiOutlineArrowDownTray,
+	HiOutlineArrowUpTray,
 	HiOutlinePencil,
 	HiOutlinePlus,
 	HiOutlineTrash,
@@ -62,8 +64,29 @@ function formatDate(timestamp: number): string {
 	});
 }
 
+function parseContentLines(content: string): { bullets: string[]; plain: string | null } {
+	const lines = content.split("\n");
+	const bullets: string[] = [];
+	const plainLines: string[] = [];
+
+	for (const line of lines) {
+		const trimmed = line.trim();
+		if (trimmed.startsWith("- ")) {
+			bullets.push(trimmed.slice(2));
+		} else if (trimmed) {
+			plainLines.push(trimmed);
+		}
+	}
+
+	return {
+		bullets,
+		plain: plainLines.length > 0 ? plainLines.join("\n") : null,
+	};
+}
+
 export function MemorySettings() {
 	const [dialog, setDialog] = useState<MemoryDialogState>(INITIAL_DIALOG);
+	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const utils = electronTrpc.useUtils();
 
@@ -152,14 +175,97 @@ export function MemorySettings() {
 		[deleteMemory],
 	);
 
+	const handleExport = useCallback(() => {
+		const allMemories = [...globalMemories, ...projectMemories];
+		const exportData = allMemories.map((m) => ({
+			content: m.content,
+			scope: m.scope,
+			projectId: m.projectId,
+			category: m.category,
+		}));
+		const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+			type: "application/json",
+		});
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement("a");
+		a.href = url;
+		a.download = `superset-memories-${new Date().toISOString().slice(0, 10)}.json`;
+		a.click();
+		URL.revokeObjectURL(url);
+	}, [globalMemories, projectMemories]);
+
+	const handleImport = useCallback(
+		(e: React.ChangeEvent<HTMLInputElement>) => {
+			const file = e.target.files?.[0];
+			if (!file) return;
+
+			const reader = new FileReader();
+			reader.onload = (ev) => {
+				try {
+					const data = JSON.parse(ev.target?.result as string) as Array<{
+						content: string;
+						scope: "global" | "project";
+						projectId?: string | null;
+						category?: string | null;
+					}>;
+
+					if (!Array.isArray(data)) return;
+
+					for (const item of data) {
+						if (!item.content || !item.scope) continue;
+						createMemory.mutate({
+							content: item.content,
+							scope: item.scope,
+							projectId: item.projectId ?? undefined,
+							category: item.category ?? undefined,
+						});
+					}
+				} catch {
+					console.error("[memory] Failed to parse import file");
+				}
+			};
+			reader.readAsText(file);
+			if (fileInputRef.current) fileInputRef.current.value = "";
+		},
+		[createMemory],
+	);
+
 	return (
 		<div className="p-6 max-w-4xl w-full">
-			<div className="mb-8">
-				<h2 className="text-xl font-semibold">Memory</h2>
-				<p className="text-sm text-muted-foreground mt-1">
-					Store coding habits, requirements, and preferences that are
-					automatically included in agent sessions.
-				</p>
+			<div className="mb-8 flex items-start justify-between">
+				<div>
+					<h2 className="text-xl font-semibold">Memory</h2>
+					<p className="text-sm text-muted-foreground mt-1">
+						Store coding habits, requirements, and preferences that are
+						automatically included in agent sessions.
+					</p>
+				</div>
+				<div className="flex items-center gap-2">
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={handleExport}
+						disabled={globalMemories.length === 0 && projectMemories.length === 0}
+					>
+						<HiOutlineArrowDownTray className="h-3.5 w-3.5 mr-1.5" />
+						Export
+					</Button>
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => fileInputRef.current?.click()}
+					>
+						<HiOutlineArrowUpTray className="h-3.5 w-3.5 mr-1.5" />
+						Import
+					</Button>
+					<input
+						ref={fileInputRef}
+						type="file"
+						accept=".json"
+						className="hidden"
+						onChange={handleImport}
+					/>
+				</div>
 			</div>
 
 			{/* Global Memories */}
@@ -337,6 +443,8 @@ function MemoryCard({
 	onEdit: (memory: MemoryEntry) => void;
 	onDelete: (id: string) => void;
 }) {
+	const { bullets, plain } = parseContentLines(memory.content);
+
 	return (
 		<div className="group flex items-start gap-3 rounded-md border border-border p-3 hover:bg-accent/30 transition-colors">
 			<div className="flex-1 min-w-0">
@@ -350,9 +458,18 @@ function MemoryCard({
 						{formatDate(memory.updatedAt)}
 					</span>
 				</div>
-				<p className="text-sm whitespace-pre-wrap break-words">
-					{memory.content}
-				</p>
+				{plain && (
+					<p className="text-sm break-words mb-1">{plain}</p>
+				)}
+				{bullets.length > 0 && (
+					<ul className="text-sm space-y-0.5 list-disc list-inside text-foreground/90">
+						{bullets.map((item, i) => (
+							<li key={i} className="break-words">
+								{item}
+							</li>
+						))}
+					</ul>
+				)}
 			</div>
 			<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
 				<Button
