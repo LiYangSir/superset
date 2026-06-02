@@ -32,7 +32,12 @@
 		"generate:routes": "tsr generate",
 		"pretypecheck": "bun run generate:icons && bun run generate:routes",
 		"typecheck": "tsc --noEmit",
-		"test": "bun test"
+		"test": "bun test",
+		"tauri": "tauri",
+		"dev:renderer": "vite dev",
+		"build:renderer": "vite build",
+		"tauri:dev": "tauri dev",
+		"tauri:build": "tauri build"
 	},
 	"dependencies": {
 		"@ast-grep/napi": "^0.41.0",
@@ -78,6 +83,7 @@
 		"@tanstack/react-router": "^1.147.3",
 		"@tanstack/react-table": "^8.21.3",
 		"@tanstack/react-virtual": "^3.13.18",
+		"@tauri-apps/api": "^2.11.0",
 		"@tiptap/core": "^3.17.1",
 		"@tiptap/extension-blockquote": "^3.17.1",
 		"@tiptap/extension-bold": "^3.17.1",
@@ -191,6 +197,7 @@
 		"@tailwindcss/vite": "^4.0.9",
 		"@tanstack/router-cli": "^1.149.0",
 		"@tanstack/router-plugin": "^1.149.0",
+		"@tauri-apps/cli": "^2.11.2",
 		"@types/better-sqlite3": "^7.6.13",
 		"@types/bun": "^1.2.17",
 		"@types/culori": "^4.0.1",

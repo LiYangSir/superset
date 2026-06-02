@@ -80,7 +80,8 @@ export function StartView() {
 
 			let filePath: string;
 			try {
-				filePath = window.webUtils.getPathForFile(firstFile);
+				const { getPathForFile } = await import("renderer/lib/file-path");
+				filePath = getPathForFile(firstFile);
 			} catch {
 				setError("Could not get path from dropped item");
 				return;

@@ -4,6 +4,7 @@ import type { Terminal as XTerm } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { useEffect, useRef, useState } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { getPathForFile } from "renderer/lib/file-path";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import { useTerminalTheme } from "renderer/stores/theme";
 import { SessionKilledOverlay } from "./components";
@@ -396,7 +397,7 @@ export const Terminal = ({ paneId, tabId, workspaceId }: TerminalProps) => {
 		let text: string;
 		if (files.length > 0) {
 			// Native file drop (from Finder, etc.)
-			const paths = files.map((file) => window.webUtils.getPathForFile(file));
+			const paths = files.map((file) => getPathForFile(file));
 			text = shellEscapePaths(paths);
 		} else {
 			// Internal drag (from file tree) - path is in text/plain
