@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { app } from "electron";
 import { localDb } from "main/lib/local-db";
 import { getProcessTree } from "main/lib/terminal/port-scanner";
+import type { ListSessionsResponse } from "main/lib/terminal-host/types";
 import { getWorkspaceRuntimeRegistry } from "main/lib/workspace-runtime/registry";
 import pidusage from "pidusage";
 
@@ -218,9 +219,19 @@ export async function collectResourceMetrics(
 
 async function collectResourceMetricsNow(): Promise<ResourceMetricsSnapshot> {
 	const registry = getWorkspaceRuntimeRegistry();
-	const { sessions } = await registry
-		.getDefault()
-		.terminal.management.listSessions();
+
+	let sessions: ListSessionsResponse["sessions"] = [];
+	try {
+		const response = await registry
+			.getDefault()
+			.terminal.management.listSessions();
+		sessions = response.sessions;
+	} catch (error) {
+		console.warn(
+			"[resource-metrics] Failed to list terminal sessions; continuing with app-only metrics",
+			error,
+		);
+	}
 
 	const workspaceSessionMap = new Map<
 		string,
@@ -327,9 +338,9 @@ async function collectResourceMetricsNow(): Promise<ResourceMetricsSnapshot> {
 				.where(eq(workspaces.id, workspaceId))
 				.get();
 			workspaceMetaCache.set(workspaceId, {
-				workspaceName: ws?.workspaceName ?? "Unknown",
-				projectId: ws?.projectId ?? "unknown",
-				projectName: ws?.projectName ?? "Unknown Project",
+				workspaceName: ws?.workspaceName || "Unknown",
+				projectId: ws?.projectId || "unknown",
+				projectName: ws?.projectName || "Unknown Project",
 			});
 		}
 
