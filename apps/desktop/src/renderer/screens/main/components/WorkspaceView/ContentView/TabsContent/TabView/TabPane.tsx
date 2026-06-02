@@ -57,6 +57,7 @@ export function TabPane({
 	onMoveToNewTab,
 }: TabPaneProps) {
 	const paneName = useTabsStore((s) => s.panes[paneId]?.name);
+	const paneDescription = useTabsStore((s) => s.panes[paneId]?.description);
 	const paneStatus = useTabsStore((s) => s.panes[paneId]?.status);
 	const setPaneStatus = useTabsStore((s) => s.setPaneStatus);
 
@@ -100,7 +101,7 @@ export function TabPane({
 				<div className="flex h-full w-full items-center justify-between px-3">
 					<div className="flex min-w-0 items-center gap-2">
 						<span className="truncate text-sm text-muted-foreground">
-							{paneName || "Terminal"}
+							{paneDescription || paneName || "Terminal"}
 						</span>
 						{paneStatus && paneStatus !== "idle" && (
 							<StatusIndicator status={paneStatus} />

@@ -36,6 +36,8 @@ export function useAgentHookListener() {
 	const navigate = useNavigate();
 
 	const summarizeSession = electronTrpc.memory.summarizeSession.useMutation();
+	const generateTabTitle =
+		electronTrpc.tabAi.generateTabTitle.useMutation();
 
 	// Ref avoids stale closure; parsed from URL since hook runs in _authenticated/layout
 	const currentWorkspaceIdRef = useRef<string | null>(null);
@@ -64,7 +66,73 @@ export function useAgentHookListener() {
 
 				const { eventType } = lifecycleEvent;
 
-				if (eventType === "Start") {
+				debugLog(
+					"agent-hooks",
+					"Lifecycle event:",
+					eventType,
+					"paneId:",
+					paneId,
+					"userMessage:",
+					lifecycleEvent.userMessage?.slice(0, 50),
+				);
+
+				if (eventType === "UserPrompt") {
+					state.setPaneStatus(paneId, "working");
+
+					const userMessage = lifecycleEvent.userMessage;
+					debugLog(
+						"agent-hooks",
+						"UserPrompt received, userMessage:",
+						userMessage ? `"${userMessage.slice(0, 80)}"` : "(empty)",
+					);
+					if (userMessage) {
+						const pane = state.panes[paneId];
+						const tab = pane
+							? state.tabs.find((t) => t.id === pane.tabId)
+							: undefined;
+						const currentTitle =
+							tab?.aiTitle || tab?.name || undefined;
+
+						debugLog(
+							"agent-hooks",
+							"Calling generateTabTitle, currentTitle:",
+							currentTitle,
+						);
+						generateTabTitle.mutate(
+							{ userMessage, currentTitle },
+							{
+								onSuccess: (result) => {
+									debugLog(
+										"agent-hooks",
+										"generateTabTitle result:",
+										result,
+									);
+									if (!result.title) return;
+									const latestState = useTabsStore.getState();
+									const latestPane = latestState.panes[paneId];
+									if (!latestPane) return;
+									latestState.setTabAiTitle(
+										latestPane.tabId,
+										result.title,
+									);
+									if (result.description) {
+										latestState.setPaneDescription(
+											paneId,
+											result.description,
+										);
+									}
+								},
+								onError: (err) => {
+									debugLog(
+										"agent-hooks",
+										"generateTabTitle error:",
+										err,
+									);
+								},
+							},
+						);
+					}
+				} else if (eventType === "Start") {
 					state.setPaneStatus(paneId, "working");
 				} else if (eventType === "PermissionRequest") {
 					state.setPaneStatus(paneId, "permission");

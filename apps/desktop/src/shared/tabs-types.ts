@@ -132,6 +132,7 @@ export interface Pane {
 	type: PaneType;
 	name: string;
 	userTitle?: string;
+	description?: string;
 	isNew?: boolean;
 	status?: PaneStatus;
 	initialCwd?: string;
@@ -211,6 +212,9 @@ export interface BaseTab {
 	id: string;
 	name: string;
 	userTitle?: string;
+	aiTitle?: string;
+	presetName?: string;
+	presetIconUrl?: string;
 	workspaceId: string;
 	createdAt: number;
 }

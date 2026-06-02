@@ -28,6 +28,7 @@ interface PreparedPreset {
 	commands: string[];
 	initialCwd?: string;
 	name?: string;
+	iconUrl?: string;
 }
 
 function preparePreset(preset: TerminalPreset): PreparedPreset {
@@ -36,6 +37,7 @@ function preparePreset(preset: TerminalPreset): PreparedPreset {
 		commands: preset.commands,
 		initialCwd: preset.cwd || undefined,
 		name: preset.name || undefined,
+		iconUrl: preset.iconUrl || undefined,
 	};
 }
 
@@ -53,6 +55,7 @@ export function useTabsWithPresets() {
 	const storeSplitPaneHorizontal = useTabsStore((s) => s.splitPaneHorizontal);
 	const storeSplitPaneAuto = useTabsStore((s) => s.splitPaneAuto);
 	const renameTab = useTabsStore((s) => s.renameTab);
+	const setTabPreset = useTabsStore((s) => s.setTabPreset);
 	const writeToTerminal = electronTrpc.terminal.write.useMutation();
 
 	const firstPreset = newTabPresets[0] ?? null;
@@ -69,13 +72,14 @@ export function useTabsWithPresets() {
 		};
 	}, [firstPreset, firstPresetCommand]);
 
-	const applyTabName = useCallback(
-		(tabId: string, name?: string) => {
-			if (name) {
-				renameTab(tabId, name);
+	const applyPresetToTab = useCallback(
+		(tabId: string, preset: PreparedPreset) => {
+			if (preset.name) {
+				renameTab(tabId, preset.name);
+				setTabPreset(tabId, preset.name, preset.iconUrl);
 			}
 		},
-		[renameTab],
+		[renameTab, setTabPreset],
 	);
 
 	const resolveActiveWorkspaceTabId = useCallback((workspaceId: string) => {
@@ -103,7 +107,7 @@ export function useTabsWithPresets() {
 					if (!firstResult) {
 						firstResult = result;
 					}
-					applyTabName(result.tabId, preset.name);
+					applyPresetToTab(result.tabId, preset);
 				}
 
 				if (firstResult) {
@@ -113,7 +117,7 @@ export function useTabsWithPresets() {
 				const fallback = storeAddTab(workspaceId, {
 					initialCwd: preset.initialCwd,
 				});
-				applyTabName(fallback.tabId, preset.name);
+				applyPresetToTab(fallback.tabId, preset);
 				return fallback;
 			}
 
@@ -122,7 +126,7 @@ export function useTabsWithPresets() {
 					commands: preset.commands,
 					initialCwd: preset.initialCwd,
 				});
-				applyTabName(multiPane.tabId, preset.name);
+				applyPresetToTab(multiPane.tabId, preset);
 				return { tabId: multiPane.tabId, paneId: multiPane.paneIds[0] };
 			}
 
@@ -131,10 +135,10 @@ export function useTabsWithPresets() {
 				initialCwd: preset.initialCwd,
 				initialCommand: command ?? undefined,
 			});
-			applyTabName(result.tabId, preset.name);
+			applyPresetToTab(result.tabId, preset);
 			return result;
 		},
-		[storeAddTab, storeAddTabWithMultiplePanes, applyTabName],
+		[storeAddTab, storeAddTabWithMultiplePanes, applyPresetToTab],
 	);
 
 	const executePreset = useCallback(

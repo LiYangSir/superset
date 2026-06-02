@@ -25,6 +25,7 @@ const fileViewerStateSchema = z.object({
 		.optional(),
 	commitHash: z.string().optional(),
 	oldPath: z.string().optional(),
+	displayName: z.string().optional(),
 });
 
 const chatMastraLaunchConfigSchema = z.object({
@@ -92,6 +93,7 @@ const paneSchema = z.object({
 			targetPaneId: z.string(),
 		})
 		.optional(),
+	description: z.string().optional(),
 });
 
 /**
@@ -124,6 +126,9 @@ const tabSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	userTitle: z.string().optional(),
+	aiTitle: z.string().optional(),
+	presetName: z.string().optional(),
+	presetIconUrl: z.string().optional(),
 	workspaceId: z.string(),
 	createdAt: z.number(),
 	layout: mosaicNodeSchema,

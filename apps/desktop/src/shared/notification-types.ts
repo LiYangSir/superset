@@ -10,5 +10,11 @@ export interface NotificationIds {
 }
 
 export interface AgentLifecycleEvent extends NotificationIds {
-	eventType: "Start" | "Stop" | "PermissionRequest" | "SessionEnd";
+	eventType:
+		| "Start"
+		| "Stop"
+		| "PermissionRequest"
+		| "SessionEnd"
+		| "UserPrompt";
+	userMessage?: string;
 }

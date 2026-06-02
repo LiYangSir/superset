@@ -109,6 +109,8 @@ export interface TabsStore extends TabsState {
 	removeTab: (tabId: string) => void;
 	renameTab: (tabId: string, newName: string) => void;
 	setTabAutoTitle: (tabId: string, title: string) => void;
+	setTabAiTitle: (tabId: string, title: string) => void;
+	setTabPreset: (tabId: string, presetName: string, iconUrl?: string) => void;
 	setActiveTab: (workspaceId: string, tabId: string) => void;
 	reorderTabs: (
 		workspaceId: string,
@@ -138,6 +140,7 @@ export interface TabsStore extends TabsState {
 	setPaneStatus: (paneId: string, status: PaneStatus) => void;
 	setPaneName: (paneId: string, name: string) => void;
 	setPaneAutoTitle: (paneId: string, title: string) => void;
+	setPaneDescription: (paneId: string, description: string) => void;
 	clearWorkspaceAttentionStatus: (workspaceId: string) => void;
 	resetWorkspaceStatus: (workspaceId: string) => void;
 	updatePaneCwd: (
