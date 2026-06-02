@@ -12,11 +12,16 @@ import supersetIcon from "./superset.svg";
 export interface PresetIconSet {
 	light: string;
 	dark: string;
+	sizeClass?: string;
 }
 
 export const PRESET_ICONS: Record<string, PresetIconSet> = {
-	claude: { light: claudeIcon, dark: claudeIcon },
-	codex: { light: codexIcon, dark: codexWhiteIcon },
+	claude: { light: claudeIcon, dark: claudeIcon, sizeClass: "size-3" },
+	codex: {
+		light: codexIcon,
+		dark: codexWhiteIcon,
+		sizeClass: "size-[18px]",
+	},
 	copilot: { light: copilotIcon, dark: copilotWhiteIcon },
 	gemini: { light: geminiIcon, dark: geminiIcon },
 	superset: { light: supersetIcon, dark: supersetIcon },
@@ -33,6 +38,13 @@ export function getPresetIcon(
 	const iconSet = PRESET_ICONS[normalizedName];
 	if (!iconSet) return undefined;
 	return isDark ? iconSet.dark : iconSet.light;
+}
+
+export function getPresetIconSizeClass(
+	presetName: string,
+): string | undefined {
+	const normalizedName = presetName.toLowerCase().trim();
+	return PRESET_ICONS[normalizedName]?.sizeClass;
 }
 
 export {

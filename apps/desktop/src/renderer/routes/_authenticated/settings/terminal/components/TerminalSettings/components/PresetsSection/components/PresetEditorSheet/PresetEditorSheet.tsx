@@ -19,6 +19,12 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@superset/ui/sheet";
+import { useRef } from "react";
+import { HiMiniCommandLine } from "react-icons/hi2";
+import {
+	getPresetIconUrl,
+	useIsDarkTheme,
+} from "renderer/assets/app-icons/preset-icons";
 import type { PresetColumnKey } from "renderer/routes/_authenticated/settings/presets/types";
 import { CommandsEditor } from "../../../PresetRow/components/CommandsEditor";
 import type { AutoApplyField } from "../../constants";
@@ -35,6 +41,7 @@ interface PresetEditorSheetProps {
 	onCommandsBlur: () => void;
 	onModeChange: (mode: ExecutionMode) => void;
 	onToggleAutoApply: (field: AutoApplyField, enabled: boolean) => void;
+	onIconChange: (icon: string | null) => void;
 	modeValue: ExecutionMode;
 	hasMultipleCommands: boolean;
 	isWorkspaceCreation: boolean;
@@ -52,6 +59,7 @@ export function PresetEditorSheet({
 	onCommandsBlur,
 	onModeChange,
 	onToggleAutoApply,
+	onIconChange,
 	modeValue,
 	hasMultipleCommands,
 	isWorkspaceCreation,
@@ -59,6 +67,28 @@ export function PresetEditorSheet({
 }: PresetEditorSheetProps) {
 	const singleCommandModeValue =
 		modeValue === "split-pane" ? modeValue : "new-tab";
+	const fileInputRef = useRef<HTMLInputElement>(null);
+	const isDark = useIsDarkTheme();
+
+	const currentIcon = preset ? getPresetIconUrl(preset, isDark) : undefined;
+
+	const handleUploadClick = () => {
+		fileInputRef.current?.click();
+	};
+
+	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+
+		const reader = new FileReader();
+		reader.onload = () => {
+			const result = reader.result as string;
+			onIconChange(result);
+		};
+		reader.readAsDataURL(file);
+
+		e.target.value = "";
+	};
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
@@ -75,6 +105,51 @@ export function PresetEditorSheet({
 						</SheetHeader>
 
 						<div className="flex-1 overflow-y-auto p-4 space-y-6">
+							<div className="space-y-2">
+								<LabelWithTooltip
+									label="Icon"
+									tooltip="Upload a custom SVG icon for this preset."
+								/>
+								<div className="flex items-center gap-3">
+									<div className="size-10 rounded-md border border-border flex items-center justify-center bg-muted">
+										{currentIcon ? (
+											<img
+												src={currentIcon}
+												alt=""
+												className="size-6 object-contain"
+											/>
+										) : (
+											<HiMiniCommandLine className="size-5 text-muted-foreground" />
+										)}
+									</div>
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										onClick={handleUploadClick}
+									>
+										Upload SVG
+									</Button>
+									{preset.iconUrl && (
+										<Button
+											type="button"
+											variant="ghost"
+											size="sm"
+											onClick={() => onIconChange(null)}
+										>
+											Remove
+										</Button>
+									)}
+									<input
+										ref={fileInputRef}
+										type="file"
+										accept=".svg,image/svg+xml"
+										className="hidden"
+										onChange={handleFileChange}
+									/>
+								</div>
+							</div>
+
 							<div className="space-y-2">
 								<LabelWithTooltip
 									label="Name"

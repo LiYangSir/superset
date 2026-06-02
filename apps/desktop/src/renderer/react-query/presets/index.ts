@@ -82,6 +82,22 @@ function useReorderTerminalPresets(
 	});
 }
 
+function useSetPresetIcon(
+	options?: Parameters<
+		typeof electronTrpc.settings.setPresetIcon.useMutation
+	>[0],
+) {
+	const utils = electronTrpc.useUtils();
+
+	return electronTrpc.settings.setPresetIcon.useMutation({
+		...options,
+		onSuccess: async (...args) => {
+			await utils.settings.getTerminalPresets.invalidate();
+			await options?.onSuccess?.(...args);
+		},
+	});
+}
+
 export function usePresets() {
 	const { data: presets = [], isLoading } =
 		electronTrpc.settings.getTerminalPresets.useQuery();
@@ -91,6 +107,7 @@ export function usePresets() {
 	const deletePreset = useDeleteTerminalPreset();
 	const setPresetAutoApply = useSetPresetAutoApply();
 	const reorderPresets = useReorderTerminalPresets();
+	const setPresetIcon = useSetPresetIcon();
 
 	return {
 		presets,
@@ -100,5 +117,6 @@ export function usePresets() {
 		deletePreset,
 		setPresetAutoApply,
 		reorderPresets,
+		setPresetIcon,
 	};
 }

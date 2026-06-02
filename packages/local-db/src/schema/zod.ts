@@ -87,6 +87,7 @@ export const terminalPresetSchema = z.object({
 	applyOnWorkspaceCreated: z.boolean().optional(),
 	applyOnNewTab: z.boolean().optional(),
 	executionMode: z.enum(EXECUTION_MODES).optional(),
+	iconUrl: z.string().optional(),
 });
 
 export type TerminalPreset = z.infer<typeof terminalPresetSchema>;

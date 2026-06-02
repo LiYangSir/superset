@@ -37,6 +37,7 @@ export function PresetsSection({
 		deletePreset,
 		setPresetAutoApply,
 		reorderPresets,
+		setPresetIcon,
 	} = usePresets();
 
 	const [localPresets, setLocalPresets] =
@@ -356,6 +357,14 @@ export function PresetsSection({
 		[editingPreset, handleToggleAutoApply],
 	);
 
+	const handleIconChange = useCallback(
+		(icon: string | null) => {
+			if (!editingPreset) return;
+			setPresetIcon.mutate({ id: editingPreset.id, icon });
+		},
+		[editingPreset, setPresetIcon],
+	);
+
 	return (
 		<div className="space-y-4">
 			<div className="flex items-center justify-between">
@@ -416,6 +425,7 @@ export function PresetsSection({
 				onCommandsBlur={handleEditorCommandsBlur}
 				onModeChange={handleEditorModeChange}
 				onToggleAutoApply={handleEditorAutoApplyToggle}
+				onIconChange={handleIconChange}
 				modeValue={modeValue}
 				hasMultipleCommands={hasMultipleCommands}
 				isWorkspaceCreation={isWorkspaceCreation}
