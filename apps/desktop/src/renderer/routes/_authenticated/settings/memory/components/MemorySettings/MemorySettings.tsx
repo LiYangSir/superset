@@ -20,6 +20,7 @@ import { Textarea } from "@superset/ui/textarea";
 import { useCallback, useRef, useState } from "react";
 import {
 	HiOutlineArrowDownTray,
+	HiOutlineArrowPath,
 	HiOutlineArrowUpTray,
 	HiOutlinePencil,
 	HiOutlinePlus,
@@ -124,6 +125,8 @@ export function MemorySettings() {
 			utils.memory.list.invalidate();
 		},
 	});
+
+	const syncMemory = electronTrpc.memory.regenerateFiles.useMutation();
 
 	const openCreateDialog = useCallback((scope: "global" | "project") => {
 		setDialog({
@@ -241,6 +244,24 @@ export function MemorySettings() {
 					</p>
 				</div>
 				<div className="flex items-center gap-2">
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() =>
+							syncMemory.mutate({
+								projectId: selectedProjectId ?? undefined,
+							})
+						}
+						disabled={
+							syncMemory.isPending ||
+							(globalMemories.length === 0 && projectMemories.length === 0)
+						}
+					>
+						<HiOutlineArrowPath
+							className={`h-3.5 w-3.5 mr-1.5 ${syncMemory.isPending ? "animate-spin" : ""}`}
+						/>
+						{syncMemory.isPending ? "Syncing..." : "Sync to Agents"}
+					</Button>
 					<Button
 						variant="outline"
 						size="sm"
