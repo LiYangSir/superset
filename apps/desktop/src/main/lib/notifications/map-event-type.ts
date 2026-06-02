@@ -1,19 +1,29 @@
 export function mapEventType(
 	eventType: string | undefined,
-): "Start" | "Stop" | "PermissionRequest" | "SessionEnd" | null {
+):
+	| "Start"
+	| "Stop"
+	| "PermissionRequest"
+	| "SessionEnd"
+	| "UserPrompt"
+	| null {
 	if (!eventType) {
 		return null;
 	}
 	if (
+		eventType === "UserPromptSubmit" ||
+		eventType === "userPromptSubmitted"
+	) {
+		return "UserPrompt";
+	}
+	if (
 		eventType === "Start" ||
 		eventType === "SessionStart" ||
-		eventType === "UserPromptSubmit" ||
 		eventType === "PostToolUse" ||
 		eventType === "PostToolUseFailure" ||
 		eventType === "BeforeAgent" ||
 		eventType === "AfterTool" ||
 		eventType === "sessionStart" ||
-		eventType === "userPromptSubmitted" ||
 		eventType === "postToolUse"
 	) {
 		return "Start";

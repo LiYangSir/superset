@@ -24,6 +24,7 @@ import { resolveDevWorkspaceName } from "./lib/dev-workspace-name";
 import { setWorkspaceDockIcon } from "./lib/dock-icon";
 import { loadWebviewBrowserExtension } from "./lib/extensions";
 import { localDb } from "./lib/local-db";
+import { ensurePresetIconsDir, getPresetIconPath } from "./lib/preset-icons";
 import { ensureProjectIconsDir, getProjectIconPath } from "./lib/project-icons";
 import {
 	prewarmTerminalRuntime,
@@ -236,8 +237,15 @@ app.requestSingleInstanceLock();
 		// Must register on both default session and the app's custom partition
 		const iconProtocolHandler = (request: Request) => {
 			const url = new URL(request.url);
-			const projectId = url.pathname.replace(/^\//, "");
-			const iconPath = getProjectIconPath(projectId);
+			const id = url.pathname.replace(/^\//, "");
+
+			let iconPath: string | null = null;
+			if (url.hostname === "presets") {
+				iconPath = getPresetIconPath(id);
+			} else {
+				iconPath = getProjectIconPath(id);
+			}
+
 			if (!iconPath) {
 				return new Response("Not found", { status: 404 });
 			}
@@ -249,6 +257,7 @@ app.requestSingleInstanceLock();
 			.protocol.handle("superset-icon", iconProtocolHandler);
 
 		ensureProjectIconsDir();
+		ensurePresetIconsDir();
 		setWorkspaceDockIcon();
 		await initAppState();
 

@@ -11,7 +11,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { useEffect, useRef } from "react";
 import { useDrag, useDrop } from "react-dnd";
 import { HiMiniCommandLine } from "react-icons/hi2";
-import { getPresetIcon } from "renderer/assets/app-icons/preset-icons";
+import {
+	getPresetIcon,
+	getPresetIconSizeClass,
+} from "renderer/assets/app-icons/preset-icons";
 import { HotkeyTooltipContent } from "renderer/components/HotkeyTooltipContent/HotkeyTooltipContent";
 import type { HotkeyId } from "shared/hotkeys";
 
@@ -49,7 +52,10 @@ export function PresetBarItem({
 	onPersistReorder,
 }: PresetBarItemProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
-	const icon = getPresetIcon(preset.name, isDark);
+	const icon = preset.iconUrl || getPresetIcon(preset.name, isDark);
+	const iconSizeClass = preset.iconUrl
+		? "size-3.5"
+		: (getPresetIconSizeClass(preset.name) ?? "size-3.5");
 	const label = preset.description || preset.name || "default";
 
 	const [{ isDragging }, drag] = useDrag(
@@ -103,7 +109,11 @@ export function PresetBarItem({
 								onClick={() => onOpenDefault(preset)}
 							>
 								{icon ? (
-									<img src={icon} alt="" className="size-3.5 object-contain" />
+									<img
+										src={icon}
+										alt=""
+										className={`${iconSizeClass} object-contain`}
+									/>
 								) : (
 									<HiMiniCommandLine className="size-3.5" />
 								)}

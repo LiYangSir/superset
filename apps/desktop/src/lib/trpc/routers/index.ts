@@ -17,6 +17,7 @@ import { createResourceMetricsRouter } from "./resource-metrics";
 import { createRingtoneRouter } from "./ringtone";
 import { createSettingsRouter } from "./settings";
 import { createSpacesRouter } from "./spaces";
+import { createTabAiRouter } from "./tab-ai";
 import { createTasksRouter } from "./tasks";
 import { createTerminalRouter } from "./terminal";
 import { createUiStateRouter } from "./ui-state";
@@ -45,6 +46,7 @@ export const createAppRouter = (getWindow: () => BrowserWindow | null) => {
 		tasks: createTasksRouter(),
 		memory: createMemoryRouter(),
 		config: createConfigRouter(),
+		tabAi: createTabAiRouter(),
 		uiState: createUiStateRouter(),
 		ringtone: createRingtoneRouter(getWindow),
 	});

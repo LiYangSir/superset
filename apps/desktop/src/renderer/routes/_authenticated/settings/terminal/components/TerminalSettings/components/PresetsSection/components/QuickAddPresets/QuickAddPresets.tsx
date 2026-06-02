@@ -1,7 +1,10 @@
 import { Button } from "@superset/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { HiOutlineCheck } from "react-icons/hi2";
-import { getPresetIcon } from "renderer/assets/app-icons/preset-icons";
+import {
+	getPresetIcon,
+	getPresetIconSizeClass,
+} from "renderer/assets/app-icons/preset-icons";
 import type { PresetTemplate } from "../../constants";
 
 interface QuickAddPresetsProps {
@@ -27,6 +30,8 @@ export function QuickAddPresets({
 			{templates.map((template) => {
 				const alreadyAdded = isTemplateAdded(template);
 				const presetIcon = getPresetIcon(template.name, isDark);
+				const iconSizeClass =
+					getPresetIconSizeClass(template.name) ?? "h-3 w-3";
 				return (
 					<Tooltip key={template.name}>
 						<TooltipTrigger asChild>
@@ -43,7 +48,7 @@ export function QuickAddPresets({
 									<img
 										src={presetIcon}
 										alt=""
-										className="h-3 w-3 object-contain"
+										className={`${iconSizeClass} object-contain`}
 									/>
 								) : null}
 								{template.name}

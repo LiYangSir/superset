@@ -1,7 +1,11 @@
-import { getPresetIcon, PRESET_ICONS } from "@superset/ui/icons/preset-icons";
+import {
+	getPresetIcon,
+	getPresetIconSizeClass,
+	PRESET_ICONS,
+} from "@superset/ui/icons/preset-icons";
 import { useThemeStore } from "renderer/stores/theme/store";
 
-export { PRESET_ICONS, getPresetIcon };
+export { PRESET_ICONS, getPresetIcon, getPresetIconSizeClass };
 export type { PresetIconSet } from "@superset/ui/icons/preset-icons";
 
 export function usePresetIcon(presetName: string): string | undefined {
@@ -13,4 +17,12 @@ export function usePresetIcon(presetName: string): string | undefined {
 export function useIsDarkTheme(): boolean {
 	const activeTheme = useThemeStore((state) => state.activeTheme);
 	return activeTheme?.type === "dark";
+}
+
+export function getPresetIconUrl(
+	preset: { name: string; iconUrl?: string },
+	isDark: boolean,
+): string | undefined {
+	if (preset.iconUrl) return preset.iconUrl;
+	return getPresetIcon(preset.name, isDark);
 }

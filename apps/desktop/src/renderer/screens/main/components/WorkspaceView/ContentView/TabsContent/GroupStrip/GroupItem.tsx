@@ -11,15 +11,42 @@ import { cn } from "@superset/ui/utils";
 import { useEffect, useRef, useState } from "react";
 import { useDrag, useDrop } from "react-dnd";
 import { getEmptyImage } from "react-dnd-html5-backend";
-import { HiMiniXMark } from "react-icons/hi2";
+import { HiMiniCommandLine, HiMiniXMark } from "react-icons/hi2";
 import { LuEyeOff, LuPencil } from "react-icons/lu";
 import { MosaicDragType } from "react-mosaic-component";
+import {
+	getPresetIconSizeClass,
+	usePresetIcon,
+} from "renderer/assets/app-icons/preset-icons";
 import { StatusIndicator } from "renderer/screens/main/components/StatusIndicator";
 import { useDragPaneStore } from "renderer/stores/drag-pane-store";
 import type { PaneStatus, Tab } from "renderer/stores/tabs/types";
 import { getTabDisplayName } from "renderer/stores/tabs/utils";
 
 export const TAB_TYPE = "TAB";
+
+function TabPresetIcon({
+	presetName,
+	iconUrl,
+}: { presetName: string; iconUrl?: string }) {
+	const builtinIcon = usePresetIcon(presetName);
+	const icon = iconUrl || builtinIcon;
+	const sizeClass = iconUrl
+		? "size-3.5"
+		: (getPresetIconSizeClass(presetName) ?? "size-3.5");
+
+	if (icon) {
+		return (
+			<img
+				src={icon}
+				alt=""
+				className={`${sizeClass} shrink-0 object-contain`}
+			/>
+		);
+	}
+
+	return <HiMiniCommandLine className="size-3.5 shrink-0 opacity-50" />;
+}
 
 interface GroupItemProps {
 	tab: Tab;
@@ -211,6 +238,12 @@ export function GroupItem({
 							}}
 							className={tabStyles}
 						>
+							{tab.presetName && (
+								<TabPresetIcon
+									presetName={tab.presetName}
+									iconUrl={tab.presetIconUrl}
+								/>
+							)}
 							<span className="text-sm truncate flex-1 text-left">
 								{displayName}
 							</span>

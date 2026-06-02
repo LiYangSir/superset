@@ -28,6 +28,10 @@ import {
 	DEFAULT_USE_COMPACT_TERMINAL_ADD_BUTTON,
 } from "shared/constants";
 import {
+	deletePresetIcon,
+	savePresetIconFromDataUrl,
+} from "main/lib/preset-icons";
+import {
 	CUSTOM_RINGTONE_ID,
 	DEFAULT_RINGTONE_ID,
 	isBuiltInRingtoneId,
@@ -183,6 +187,7 @@ export const createSettingsRouter = () => {
 						commands: z.array(z.string()).optional(),
 						pinnedToBar: z.boolean().optional(),
 						executionMode: z.enum(EXECUTION_MODES).optional(),
+						iconUrl: z.string().nullable().optional(),
 					}),
 				}),
 			)
@@ -207,6 +212,8 @@ export const createSettingsRouter = () => {
 					preset.pinnedToBar = input.patch.pinnedToBar;
 				if (input.patch.executionMode !== undefined)
 					preset.executionMode = input.patch.executionMode;
+				if (input.patch.iconUrl !== undefined)
+					preset.iconUrl = input.patch.iconUrl ?? undefined;
 
 				saveTerminalPresets(presets);
 
@@ -220,8 +227,43 @@ export const createSettingsRouter = () => {
 				const filteredPresets = presets.filter((p) => p.id !== input.id);
 
 				saveTerminalPresets(filteredPresets);
+				deletePresetIcon(input.id);
 
 				return { success: true };
+			}),
+
+		setPresetIcon: publicProcedure
+			.input(
+				z.object({
+					id: z.string(),
+					icon: z.string().nullable(),
+				}),
+			)
+			.mutation(async ({ input }) => {
+				const presets = getNormalizedTerminalPresets();
+				const preset = presets.find((p) => p.id === input.id);
+
+				if (!preset) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: `Terminal preset ${input.id} not found`,
+					});
+				}
+
+				if (input.icon === null) {
+					deletePresetIcon(input.id);
+					preset.iconUrl = undefined;
+				} else {
+					const iconUrl = await savePresetIconFromDataUrl({
+						presetId: input.id,
+						dataUrl: input.icon,
+					});
+					preset.iconUrl = iconUrl;
+				}
+
+				saveTerminalPresets(presets);
+
+				return { iconUrl: preset.iconUrl ?? null };
 			}),
 
 		setDefaultPreset: publicProcedure

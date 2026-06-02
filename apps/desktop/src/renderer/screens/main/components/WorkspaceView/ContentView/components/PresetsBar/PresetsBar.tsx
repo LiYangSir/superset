@@ -19,6 +19,7 @@ import { HiMiniCog6Tooth, HiMiniCommandLine } from "react-icons/hi2";
 import { LuCirclePlus, LuPin } from "react-icons/lu";
 import {
 	getPresetIcon,
+	getPresetIconSizeClass,
 	useIsDarkTheme,
 } from "renderer/assets/app-icons/preset-icons";
 import { HotkeyMenuShortcut } from "renderer/components/HotkeyMenuShortcut";
@@ -210,6 +211,7 @@ export function PresetsBar() {
 			preset: presetsByName.get(template.name)?.[0],
 			template,
 			iconName: template.name,
+			iconUrl: presetsByName.get(template.name)?.[0]?.iconUrl,
 		}));
 		const customExisting = presets
 			.filter(
@@ -223,6 +225,7 @@ export function PresetsBar() {
 				preset,
 				template: null,
 				iconName: preset.name,
+				iconUrl: preset.iconUrl,
 			}));
 		return [...fromTemplates, ...customExisting];
 	}, [presetsByName, presets]);
@@ -363,7 +366,11 @@ export function PresetsBar() {
 				</Tooltip>
 				<DropdownMenuContent align="start" className="w-56">
 					{managedPresets.map((item) => {
-						const icon = getPresetIcon(item.iconName, isDark);
+						const icon =
+							item.iconUrl || getPresetIcon(item.iconName, isDark);
+						const iconSizeClass = item.iconUrl
+							? "size-4"
+							: (getPresetIconSizeClass(item.iconName) ?? "size-4");
 						const isPinned = item.preset
 							? isPresetPinnedToBar(item.preset.pinnedToBar)
 							: false;
@@ -396,7 +403,11 @@ export function PresetsBar() {
 								}}
 							>
 								{icon ? (
-									<img src={icon} alt="" className="size-4 object-contain" />
+									<img
+										src={icon}
+										alt=""
+										className={`${iconSizeClass} object-contain`}
+									/>
 								) : (
 									<HiMiniCommandLine className="size-4" />
 								)}

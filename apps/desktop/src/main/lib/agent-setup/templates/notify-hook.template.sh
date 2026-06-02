@@ -37,9 +37,11 @@ fi
 # Parse failures should not trigger completion notifications.
 # The server will ignore requests with missing eventType (forward compatibility).
 
-# Only UserPromptSubmit is mapped here; other events are normalized
-# server-side by mapEventType() to keep a single source of truth.
-[ "$EVENT_TYPE" = "UserPromptSubmit" ] && EVENT_TYPE="Start"
+# Extract user prompt for UserPromptSubmit events (truncated to 500 chars)
+USER_MESSAGE=""
+if [ "$EVENT_TYPE" = "UserPromptSubmit" ] || [ "$EVENT_TYPE" = "userPromptSubmitted" ]; then
+  USER_MESSAGE=$(echo "$INPUT" | grep -oE '"prompt"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/^"prompt"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//' | cut -c1-500)
+fi
 
 # If no event type was found, skip the notification
 # This prevents parse failures from causing false completion notifications
@@ -60,7 +62,7 @@ elif [ "$SUPERSET_ENV" = "development" ] || [ "$NODE_ENV" = "development" ]; the
 fi
 
 if [ "$DEBUG_HOOKS_ENABLED" = "1" ]; then
-  echo "[notify-hook] event=$EVENT_TYPE sessionId=$SESSION_ID hookSessionId=$HOOK_SESSION_ID resourceId=$RESOURCE_ID paneId=$SUPERSET_PANE_ID tabId=$SUPERSET_TAB_ID workspaceId=$SUPERSET_WORKSPACE_ID" >&2
+  echo "[notify-hook] event=$EVENT_TYPE userMessage=$USER_MESSAGE sessionId=$SESSION_ID hookSessionId=$HOOK_SESSION_ID resourceId=$RESOURCE_ID paneId=$SUPERSET_PANE_ID tabId=$SUPERSET_TAB_ID workspaceId=$SUPERSET_WORKSPACE_ID" >&2
 fi
 
 # Timeouts prevent blocking agent completion if notification server is unresponsive
@@ -76,6 +78,7 @@ if [ "$DEBUG_HOOKS_ENABLED" = "1" ]; then
     --data-urlencode "eventType=$EVENT_TYPE" \
     --data-urlencode "env=$SUPERSET_ENV" \
     --data-urlencode "version=$SUPERSET_HOOK_VERSION" \
+    --data-urlencode "userMessage=$USER_MESSAGE" \
     -o /dev/null -w "%{http_code}" 2>/dev/null)
   echo "[notify-hook] dispatched status=$STATUS_CODE" >&2
 else
@@ -90,6 +93,7 @@ else
     --data-urlencode "eventType=$EVENT_TYPE" \
     --data-urlencode "env=$SUPERSET_ENV" \
     --data-urlencode "version=$SUPERSET_HOOK_VERSION" \
+    --data-urlencode "userMessage=$USER_MESSAGE" \
     > /dev/null 2>&1
 fi
 

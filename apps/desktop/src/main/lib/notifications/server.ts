@@ -114,6 +114,7 @@ app.get("/hook/complete", (req, res) => {
 		eventType,
 		env: clientEnv,
 		version,
+		userMessage,
 	} = req.query;
 
 	// Environment validation: detect dev/prod cross-talk
@@ -156,12 +157,16 @@ app.get("/hook/complete", (req, res) => {
 		tabId: tabId as string | undefined,
 		workspaceId: workspaceId as string | undefined,
 		eventType: mappedEventType,
+		...(userMessage ? { userMessage: userMessage as string } : {}),
 	};
 
 	if (DEBUG_HOOKS_ENABLED) {
 		console.log("[notifications] hook event received", {
 			eventType,
 			mappedEventType,
+			userMessage: userMessage
+				? `${(userMessage as string).slice(0, 50)}...`
+				: undefined,
 			paneId: paneId as string | undefined,
 			tabId: tabId as string | undefined,
 			workspaceId: workspaceId as string | undefined,

@@ -337,7 +337,9 @@ export const useTabsStore = create<TabsStore>()(
 				renameTab: (tabId, newName) => {
 					set((state) => ({
 						tabs: state.tabs.map((t) =>
-							t.id === tabId ? { ...t, userTitle: newName } : t,
+							t.id === tabId
+								? { ...t, userTitle: newName, aiTitle: undefined }
+								: t,
 						),
 					}));
 				},
@@ -354,6 +356,30 @@ export const useTabsStore = create<TabsStore>()(
 							),
 						};
 					});
+				},
+
+				setTabAiTitle: (tabId, title) => {
+					set((state) => {
+						const tab = state.tabs.find((t) => t.id === tabId);
+						if (!tab || tab.aiTitle === title) {
+							return state;
+						}
+						return {
+							tabs: state.tabs.map((t) =>
+								t.id === tabId ? { ...t, aiTitle: title } : t,
+							),
+						};
+					});
+				},
+
+				setTabPreset: (tabId, presetName, iconUrl) => {
+					set((state) => ({
+						tabs: state.tabs.map((t) =>
+							t.id === tabId
+								? { ...t, presetName, presetIconUrl: iconUrl }
+								: t,
+						),
+					}));
 				},
 
 				setActiveTab: (workspaceId, tabId) => {
@@ -1027,6 +1053,21 @@ export const useTabsStore = create<TabsStore>()(
 							panes: {
 								...state.panes,
 								[paneId]: { ...pane, name: title },
+							},
+						};
+					});
+				},
+
+				setPaneDescription: (paneId, description) => {
+					set((state) => {
+						const pane = state.panes[paneId];
+						if (!pane || pane.description === description) {
+							return state;
+						}
+						return {
+							panes: {
+								...state.panes,
+								[paneId]: { ...pane, description },
 							},
 						};
 					});
@@ -1974,7 +2015,7 @@ export const useTabsStore = create<TabsStore>()(
 			}),
 			{
 				name: "tabs-storage",
-				version: 7,
+				version: 8,
 				storage: trpcTabsStorage,
 				migrate: (persistedState, version) => {
 					const state = persistedState as TabsState;

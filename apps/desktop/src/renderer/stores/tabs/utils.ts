@@ -47,12 +47,15 @@ export const generateId = (prefix: string): string => {
 };
 
 export const getTabDisplayName = (tab: Tab): string => {
+	const aiTitle = tab.aiTitle?.trim();
+	if (aiTitle) {
+		return aiTitle;
+	}
 	const userTitle = tab.userTitle?.trim();
 	if (userTitle) {
 		return userTitle;
 	}
 	const name = tab.name || "Terminal";
-	// If name looks like a path, extract just the last directory name
 	if (name.includes("/")) {
 		const parts = name.split("/").filter(Boolean);
 		return parts[parts.length - 1] || name;
