@@ -10,11 +10,145 @@ import { getWorkspaceWithRelations } from "../workspaces/utils/db-helpers";
 import { readLatestClaudeSession } from "./session-reader";
 
 const SUPERSET_DIR_NAME = process.env.SUPERSET_DIR_NAME || ".superset";
+const SUPERSET_MEMORY_PREFIX = "superset-";
 
 function getSupersetHomeDir(): string {
 	return (
 		process.env.SUPERSET_HOME_DIR || path.join(os.homedir(), SUPERSET_DIR_NAME)
 	);
+}
+
+function encodeProjectPath(projectPath: string): string {
+	return projectPath.replace(/\//g, "-");
+}
+
+function getClaudeMemoryDir(projectPath: string): string {
+	const encoded = encodeProjectPath(projectPath);
+	return path.join(os.homedir(), ".claude", "projects", encoded, "memory");
+}
+
+function categoryToSlug(category: string): string {
+	return category
+		.toLowerCase()
+		.replace(/\s+/g, "-")
+		.replace(/[^a-z0-9-]/g, "");
+}
+
+function syncToClaudeMemory(projectPath: string, projectId?: string) {
+	const globalMems = localDb
+		.select()
+		.from(memories)
+		.where(eq(memories.scope, "global"))
+		.orderBy(desc(memories.updatedAt))
+		.all();
+
+	let projectMems: typeof globalMems = [];
+	if (projectId) {
+		projectMems = localDb
+			.select()
+			.from(memories)
+			.where(
+				and(eq(memories.scope, "project"), eq(memories.projectId, projectId)),
+			)
+			.orderBy(desc(memories.updatedAt))
+			.all();
+	}
+
+	const memoryDir = getClaudeMemoryDir(projectPath);
+	fs.mkdirSync(memoryDir, { recursive: true });
+
+	// Clean up old superset-managed files
+	try {
+		for (const file of fs.readdirSync(memoryDir)) {
+			if (file.startsWith(SUPERSET_MEMORY_PREFIX) && file.endsWith(".md")) {
+				fs.unlinkSync(path.join(memoryDir, file));
+			}
+		}
+	} catch {}
+
+	const allMems = [...globalMems, ...projectMems];
+	if (allMems.length === 0) {
+		updateMemoryIndex(memoryDir, []);
+		return;
+	}
+
+	const grouped = new Map<
+		string,
+		{ scope: string; items: string[] }
+	>();
+	for (const mem of allMems) {
+		const cat = mem.category || "General";
+		if (!grouped.has(cat)) {
+			grouped.set(cat, { scope: mem.scope, items: [] });
+		}
+		grouped.get(cat)!.items.push(mem.content);
+	}
+
+	const entries: Array<{ slug: string; name: string; description: string }> =
+		[];
+
+	for (const [category, { scope, items }] of grouped) {
+		const slug = categoryToSlug(category);
+		const fileName = `${SUPERSET_MEMORY_PREFIX}${slug}.md`;
+		const memType = scope === "project" ? "project" : "user";
+
+		const content = [
+			"---",
+			`name: ${category}`,
+			`description: ${category} - synced from Superset`,
+			`type: ${memType}`,
+			"---",
+			"",
+			...items.map((item) =>
+				item.includes("\n") ? item : `- ${item}`,
+			),
+			"",
+		].join("\n");
+
+		writeMemoryFile(path.join(memoryDir, fileName), content);
+		entries.push({
+			slug,
+			name: category,
+			description: `${category} (Superset)`,
+		});
+	}
+
+	updateMemoryIndex(memoryDir, entries);
+}
+
+function updateMemoryIndex(
+	memoryDir: string,
+	entries: Array<{ slug: string; name: string; description: string }>,
+) {
+	const indexPath = path.join(memoryDir, "MEMORY.md");
+
+	let existingLines: string[] = [];
+	try {
+		existingLines = fs
+			.readFileSync(indexPath, "utf-8")
+			.split("\n")
+			.filter(
+				(line) =>
+					line.trim() &&
+					!line.includes(`(${SUPERSET_MEMORY_PREFIX}`),
+			);
+	} catch {}
+
+	const newLines = entries.map(
+		(e) =>
+			`- [${e.name}](${SUPERSET_MEMORY_PREFIX}${e.slug}.md) — ${e.description}`,
+	);
+
+	const allLines = [...existingLines, ...newLines];
+
+	if (allLines.length === 0) {
+		try {
+			fs.unlinkSync(indexPath);
+		} catch {}
+		return;
+	}
+
+	writeMemoryFile(indexPath, allLines.join("\n") + "\n");
 }
 
 function formatMemoriesAsMarkdown(
@@ -62,13 +196,20 @@ function regenerateGlobalMemoryFile() {
 		try {
 			fs.unlinkSync(filePath);
 		} catch {}
-		return;
+	} else {
+		writeMemoryFile(
+			filePath,
+			formatMemoriesAsMarkdown("Superset Memory (Global)", globalMemories),
+		);
 	}
 
-	writeMemoryFile(
-		filePath,
-		formatMemoriesAsMarkdown("Superset Memory (Global)", globalMemories),
-	);
+	// Sync to Claude Code native memory for all known projects
+	const allProjects = localDb.select().from(projects).all();
+	for (const project of allProjects) {
+		if (project.mainRepoPath) {
+			syncToClaudeMemory(project.mainRepoPath, project.id);
+		}
+	}
 }
 
 function regenerateProjectMemoryFile(projectId: string) {
@@ -95,13 +236,17 @@ function regenerateProjectMemoryFile(projectId: string) {
 		try {
 			fs.unlinkSync(filePath);
 		} catch {}
-		return;
+	} else {
+		writeMemoryFile(
+			filePath,
+			formatMemoriesAsMarkdown(`Superset Memory (${project.name})`, projectMemories),
+		);
 	}
 
-	writeMemoryFile(
-		filePath,
-		formatMemoriesAsMarkdown(`Superset Memory (${project.name})`, projectMemories),
-	);
+	// Sync to Claude Code native memory
+	if (project.mainRepoPath) {
+		syncToClaudeMemory(project.mainRepoPath, projectId);
+	}
 }
 
 export const createMemoryRouter = () => {

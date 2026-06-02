@@ -231,7 +231,7 @@ export function MemorySettings() {
 	);
 
 	return (
-		<div className="p-6 max-w-4xl w-full">
+		<div className="p-6 max-w-6xl w-full">
 			<div className="mb-8 flex items-start justify-between">
 				<div>
 					<h2 className="text-xl font-semibold">Memory</h2>
