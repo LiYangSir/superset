@@ -60,7 +60,7 @@ export function SettingsSidebar() {
 				)}
 			</div>
 
-			<div className="flex-1 overflow-y-auto min-h-0">
+			<div className="flex-1 overflow-y-auto min-h-0 hide-scrollbar">
 				<GeneralSettings matchCounts={matchCounts} />
 				<ProjectsSettings searchQuery={searchQuery} />
 			</div>

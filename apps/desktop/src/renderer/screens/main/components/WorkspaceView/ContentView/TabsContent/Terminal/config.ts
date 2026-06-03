@@ -13,21 +13,24 @@ export const DEBUG_TERMINAL =
 	localStorage.getItem("SUPERSET_TERMINAL_DEBUG") === "1";
 
 // Nerd Fonts first for shell theme compatibility (Oh My Posh, Powerlevel10k, etc.)
+// Multi-word family names MUST be quoted so that the CSS `font` shorthand
+// (used by Canvas measureText) parses them as a single family name.
+// Without quotes, "JetBrains Mono" becomes two families: "JetBrains" and "Mono",
+// causing WebKit's Canvas to fall back to a proportional serif font.
 export const DEFAULT_TERMINAL_FONT_FAMILY = [
-	"MesloLGM Nerd Font",
-	"MesloLGM NF",
-	"MesloLGS NF",
-	"MesloLGS Nerd Font",
-	"Hack Nerd Font",
-	"FiraCode Nerd Font",
-	"JetBrainsMono Nerd Font",
-	"CaskaydiaCove Nerd Font",
+	'"MesloLGM Nerd Font"',
+	'"MesloLGM NF"',
+	'"MesloLGS NF"',
+	'"MesloLGS Nerd Font"',
+	'"Hack Nerd Font"',
+	'"FiraCode Nerd Font"',
+	'"JetBrainsMono Nerd Font"',
+	'"CaskaydiaCove Nerd Font"',
 	"Menlo",
 	"Monaco",
 	'"Courier New"',
-	// SF fonts for Apple tools (swift, xcodebuild) that use SF Symbols private use area characters
-	"SF Mono",
-	"SF Pro",
+	'"SF Mono"',
+	'"SF Pro"',
 	"monospace",
 ].join(", ");
 
@@ -53,3 +56,43 @@ export const TERMINAL_OPTIONS: ITerminalOptions = {
 };
 
 export const RESIZE_DEBOUNCE_MS = 150;
+
+const CSS_GENERIC_FAMILIES = new Set([
+	"monospace",
+	"serif",
+	"sans-serif",
+	"cursive",
+	"fantasy",
+	"system-ui",
+	"ui-monospace",
+	"ui-serif",
+	"ui-sans-serif",
+	"ui-rounded",
+]);
+
+/**
+ * Ensure multi-word font family names are quoted for CSS `font` shorthand
+ * compatibility. Without quotes, `ctx.font = "14px JetBrains Mono"` is parsed
+ * as two families ("JetBrains", "Mono") per the CSS spec — WebKit follows this
+ * strictly, causing Canvas measureText to use a wrong fallback font.
+ */
+export function quoteFontFamily(fontFamily: string): string {
+	return fontFamily
+		.split(",")
+		.map((f) => {
+			let trimmed = f.trim();
+			if (!trimmed) return trimmed;
+			// Normalize single quotes to double quotes — WebKit Canvas ctx.font
+			// doesn't reliably parse single-quoted family names.
+			if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
+				trimmed = trimmed.slice(1, -1);
+				if (!trimmed.includes(" ")) return trimmed;
+				return `"${trimmed}"`;
+			}
+			if (trimmed.startsWith('"')) return trimmed;
+			if (CSS_GENERIC_FAMILIES.has(trimmed)) return trimmed;
+			if (!trimmed.includes(" ")) return trimmed;
+			return `"${trimmed}"`;
+		})
+		.join(", ");
+}

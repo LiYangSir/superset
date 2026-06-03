@@ -16,10 +16,12 @@ mod ringtone;
 mod settings;
 mod spaces;
 mod tasks;
-mod terminal;
+pub(crate) mod terminal;
 mod ui_state;
 mod window;
 mod workspaces;
+
+use tauri::Manager;
 
 use crate::AppState;
 
@@ -59,24 +61,24 @@ pub async fn trpc_call(
         "permissions.requestLocalNetwork" => return permissions::request_local_network(),
 
         // resourceMetrics
-        "resourceMetrics.getSnapshot" => return resource_metrics::get_snapshot(),
+        "resourceMetrics.getSnapshot" => return resource_metrics::get_snapshot(&state),
 
         // terminal
-        "terminal.createOrAttach" => return terminal::create_or_attach(input),
-        "terminal.write" => return terminal::write(input),
+        "terminal.createOrAttach" => return terminal::create_or_attach(input, &state, webview_window.app_handle().clone()),
+        "terminal.write" => return terminal::write(input, &state),
         "terminal.ackColdRestore" => return terminal::ack_cold_restore(input),
-        "terminal.resize" => return terminal::resize(input),
-        "terminal.signal" => return terminal::signal(input),
-        "terminal.kill" => return terminal::kill(input),
-        "terminal.detach" => return terminal::detach(input),
+        "terminal.resize" => return terminal::resize(input, &state),
+        "terminal.signal" => return terminal::signal(input, &state),
+        "terminal.kill" => return terminal::kill(input, &state),
+        "terminal.detach" => return terminal::detach(input, &state),
         "terminal.clearScrollback" => return terminal::clear_scrollback(input),
         "terminal.listDaemonSessions" => return terminal::list_daemon_sessions(),
         "terminal.killAllDaemonSessions" => return terminal::kill_all_daemon_sessions(),
         "terminal.killDaemonSessionsForWorkspace" => return terminal::kill_daemon_sessions_for_workspace(input),
         "terminal.clearTerminalHistory" => return terminal::clear_terminal_history(),
         "terminal.restartDaemon" => return terminal::restart_daemon(),
-        "terminal.getSession" => return terminal::get_session(input),
-        "terminal.getWorkspaceCwd" => return terminal::get_workspace_cwd(input),
+        "terminal.getSession" => return terminal::get_session(input, &state),
+        "terminal.getWorkspaceCwd" => return terminal::get_workspace_cwd(input, &state),
 
         // filesystem
         "filesystem.getServiceInfo" => return filesystem::get_service_info(input),

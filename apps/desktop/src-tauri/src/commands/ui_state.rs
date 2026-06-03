@@ -28,8 +28,7 @@ fn write_ui_state(state: &serde_json::Value) {
 
 pub fn tabs_get() -> rusqlite::Result<serde_json::Value> {
     let state = read_ui_state();
-    let tabs = state.get("tabs").cloned().unwrap_or(serde_json::json!({}));
-    Ok(tabs)
+    Ok(state.get("tabs").cloned().unwrap_or(serde_json::Value::Null))
 }
 
 pub fn tabs_set(input: serde_json::Value) -> rusqlite::Result<serde_json::Value> {
@@ -57,8 +56,10 @@ pub fn theme_set(input: serde_json::Value) -> rusqlite::Result<serde_json::Value
 
 pub fn hotkeys_get() -> rusqlite::Result<serde_json::Value> {
     let state = read_ui_state();
-    let hotkeys = state.get("hotkeys").cloned().unwrap_or(serde_json::json!({}));
-    Ok(hotkeys)
+    Ok(state.get("hotkeys").cloned().unwrap_or(serde_json::json!({
+        "version": 1,
+        "byPlatform": { "darwin": {}, "win32": {}, "linux": {} }
+    })))
 }
 
 pub fn hotkeys_set(input: serde_json::Value) -> rusqlite::Result<serde_json::Value> {

@@ -23,6 +23,24 @@ async function tauriListen(
 	return unlisten;
 }
 
+interface NormalizedTransformer {
+	serialize: (v: unknown) => unknown;
+	deserialize: (v: unknown) => unknown;
+}
+
+function normalizeTransformer(
+	t: DataTransformer | undefined,
+	dir: "input" | "output",
+): NormalizedTransformer {
+	if (!t) return { serialize: (v) => v, deserialize: (v) => v };
+	if ("input" in t && t.input) {
+		return dir === "input"
+			? (t as { input: NormalizedTransformer }).input
+			: (t as { output: NormalizedTransformer }).output;
+	}
+	return t as NormalizedTransformer;
+}
+
 interface TauriLinkOptions {
 	transformer?: DataTransformer;
 }
@@ -60,9 +78,9 @@ function handleQueryOrMutation(
 		complete: () => void;
 	},
 ) {
-	const serializedInput = transformer
-		? (transformer as { input: { serialize: (v: unknown) => unknown } }).input.serialize(input)
-		: input;
+	const inp = normalizeTransformer(transformer, "input");
+	const out = normalizeTransformer(transformer, "output");
+	const serializedInput = inp.serialize(input);
 
 	tauriInvoke("trpc_call", {
 		path,
@@ -70,9 +88,7 @@ function handleQueryOrMutation(
 		input: serializedInput ?? null,
 	})
 		.then((result) => {
-			const data = transformer
-				? (transformer as { output: { deserialize: (v: unknown) => unknown } }).output.deserialize(result)
-				: result;
+			const data = out.deserialize(result);
 			observer.next({ result: { data } });
 			observer.complete();
 		})
@@ -96,11 +112,16 @@ function handleSubscription(
 	let unlisten: (() => void) | null = null;
 	let disposed = false;
 
-	const eventName = `trpc_sub:${path}`;
+	const inp = normalizeTransformer(transformer, "input");
+	const out = normalizeTransformer(transformer, "output");
+	const serializedInput = inp.serialize(input);
 
-	const serializedInput = transformer
-		? (transformer as { input: { serialize: (v: unknown) => unknown } }).input.serialize(input)
-		: input;
+	const safePath = path.replace(/\./g, "/");
+	const inputSuffix =
+		serializedInput !== null && serializedInput !== undefined
+			? `:${typeof serializedInput === "string" ? serializedInput : JSON.stringify(serializedInput)}`
+			: "";
+	const eventName = `trpc_sub:${safePath}${inputSuffix}`;
 
 	tauriInvoke("trpc_subscribe", {
 		path,
@@ -115,9 +136,7 @@ function handleSubscription(
 
 	tauriListen(eventName, (payload) => {
 		if (disposed) return;
-		const data = transformer
-			? (transformer as { output: { deserialize: (v: unknown) => unknown } }).output.deserialize(payload)
-			: payload;
+		const data = out.deserialize(payload);
 		observer.next({ result: { data } });
 	}).then((fn) => {
 		if (disposed) {
@@ -131,8 +150,4 @@ function handleSubscription(
 		disposed = true;
 		unlisten?.();
 	};
-}
-
-export function isTauri(): boolean {
-	return typeof window !== "undefined" && !!window.__TAURI_INTERNALS__;
 }

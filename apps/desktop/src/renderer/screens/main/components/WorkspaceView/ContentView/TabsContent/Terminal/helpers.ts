@@ -85,6 +85,13 @@ function getPreferredRenderer(): PreferredRenderer {
 		return "dom";
 	}
 
+	// WebKit's WKWebView (Tauri) Canvas 2D cannot access system fonts,
+	// causing the WebGL renderer's texture atlas to use wrong font metrics.
+	// Force DOM renderer which uses CSS font-family (works correctly).
+	if ((window as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__) {
+		return "dom";
+	}
+
 	try {
 		const stored = localStorage.getItem("terminal-renderer");
 		if (stored === "webgl" || stored === "dom") {
@@ -126,12 +133,12 @@ function loadRenderer(xterm: XTerm): TerminalRenderer {
 			webglAddon?.dispose();
 			webglAddon = null;
 			kind = "dom";
-			// Force refresh after context loss
 			xterm.refresh(0, xterm.rows - 1);
 		});
 
 		xterm.loadAddon(webglAddon);
 		kind = "webgl";
+		console.info("[Terminal] WebGL renderer loaded successfully");
 	} catch (e) {
 		console.warn(
 			"[Terminal] WebGL could not be loaded, falling back to DOM renderer",
@@ -190,8 +197,17 @@ export function createTerminalInstance(
 
 	// Use provided theme, or fall back to localStorage-based default to prevent flash
 	const theme = initialTheme ?? getDefaultTerminalTheme();
-	const terminalOptions = { ...TERMINAL_OPTIONS, theme };
-	const xterm = new XTerm(terminalOptions);
+	const isTauri = !!(window as { __TAURI_INTERNALS__?: unknown })
+		.__TAURI_INTERNALS__;
+	const xterm = new XTerm({
+		...TERMINAL_OPTIONS,
+		theme,
+		// WebKit Canvas measureText returns proportional (non-monospace) widths
+		// for bold font weight, causing the DOM renderer to add large per-span
+		// letter-spacing (2-4px) on bold text. Use normal weight for measurement;
+		// CSS override in globals.css preserves visual bold rendering.
+		...(isTauri && { fontWeightBold: "normal" }),
+	});
 	const fitAddon = new FitAddon();
 
 	const clipboardAddon = new ClipboardAddon();

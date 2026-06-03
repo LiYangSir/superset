@@ -11,6 +11,7 @@ import { SessionKilledOverlay } from "./components";
 import {
 	DEFAULT_TERMINAL_FONT_FAMILY,
 	DEFAULT_TERMINAL_FONT_SIZE,
+	quoteFontFamily,
 } from "./config";
 import { getDefaultTerminalBg, type TerminalRendererRef } from "./helpers";
 import {
@@ -376,8 +377,15 @@ export const Terminal = ({ paneId, tabId, workspaceId }: TerminalProps) => {
 	useEffect(() => {
 		const xterm = xtermRef.current;
 		if (!xterm || !fontSettings) return;
-		const family =
-			fontSettings.terminalFontFamily || DEFAULT_TERMINAL_FONT_FAMILY;
+		const raw = fontSettings.terminalFontFamily || DEFAULT_TERMINAL_FONT_FAMILY;
+		let family = quoteFontFamily(raw);
+		// WebKit Canvas font matching is stricter than CSS — it may fail to
+		// resolve installed fonts by family name, falling back to a proportional
+		// default. Always include a generic monospace fallback so Canvas
+		// measurements stay monospaced even when the specific font isn't matched.
+		if (!/\bmonospace\b/.test(family)) {
+			family = `${family}, monospace`;
+		}
 		const size = fontSettings.terminalFontSize ?? DEFAULT_TERMINAL_FONT_SIZE;
 		xterm.options.fontFamily = family;
 		xterm.options.fontSize = size;

@@ -13,7 +13,7 @@ name = "superset-desktop"
 path = "src/main.rs"
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon"] }
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-clipboard-manager = "2"
@@ -34,6 +34,7 @@ thiserror = "2"
 anyhow = "1"
 sysinfo = "0.33"
 base64 = "0.22"
+libc = "0.2"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

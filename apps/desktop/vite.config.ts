@@ -25,7 +25,6 @@ export default defineConfig({
 		"process.env.SUPERSET_WORKSPACE_NAME": JSON.stringify(
 			process.env.SUPERSET_WORKSPACE_NAME,
 		),
-		__IS_TAURI__: JSON.stringify(true),
 	},
 
 	server: {
@@ -58,12 +57,6 @@ export default defineConfig({
 		}),
 		reactPlugin(),
 	],
-
-	resolve: {
-		alias: {
-			"renderer/lib/trpc-client": resolve("src/renderer/lib/trpc-client.tauri.ts"),
-		},
-	},
 
 	worker: {
 		format: "es" as const,

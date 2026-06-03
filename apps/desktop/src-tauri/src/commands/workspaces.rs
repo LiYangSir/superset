@@ -33,7 +33,60 @@ pub fn get(db: &Database, input: serde_json::Value) -> Result<serde_json::Value>
     let sql = format!("SELECT {} FROM workspaces WHERE id = ?1", WORKSPACE_COLS);
     let row = db.conn.query_row(&sql, rusqlite::params![id], map_workspace_row);
     match row {
-        Ok(v) => Ok(v),
+        Ok(mut ws) => {
+            let worktree_id = ws["worktreeId"].as_str().map(|s| s.to_string());
+            if let Some(wt_id) = worktree_id {
+                let wt = db.conn.query_row(
+                    "SELECT branch, git_status, path FROM worktrees WHERE id = ?1",
+                    rusqlite::params![wt_id],
+                    |row| {
+                        let path: String = row.get::<_, Option<String>>(2)?.unwrap_or_default();
+                        Ok((serde_json::json!({
+                            "branch": row.get::<_, Option<String>>(0)?,
+                            "gitStatus": row.get::<_, Option<String>>(1)?,
+                        }), path))
+                    },
+                );
+                match wt {
+                    Ok((wt_val, wt_path)) => {
+                        ws["worktree"] = wt_val;
+                        ws["worktreePath"] = serde_json::Value::String(wt_path);
+                    }
+                    Err(rusqlite::Error::QueryReturnedNoRows) => {
+                        ws["worktree"] = serde_json::Value::Null;
+                        ws["worktreePath"] = serde_json::Value::String(String::new());
+                    }
+                    Err(e) => return Err(e),
+                }
+            } else {
+                ws["worktree"] = serde_json::Value::Null;
+                let project_id = ws["projectId"].as_str().unwrap_or("");
+                let main_path: String = db.conn.query_row(
+                    "SELECT main_repo_path FROM projects WHERE id = ?1",
+                    rusqlite::params![project_id],
+                    |row| row.get(0),
+                ).unwrap_or_default();
+                ws["worktreePath"] = serde_json::Value::String(main_path);
+            }
+
+            let project_id = ws["projectId"].as_str().unwrap_or("").to_string();
+            let proj = db.conn.query_row(
+                "SELECT id, name, main_repo_path, space_id, default_branch FROM projects WHERE id = ?1",
+                rusqlite::params![project_id],
+                |row| {
+                    Ok(serde_json::json!({
+                        "id": row.get::<_, Option<String>>(0)?,
+                        "name": row.get::<_, Option<String>>(1)?,
+                        "mainRepoPath": row.get::<_, Option<String>>(2)?,
+                        "spaceId": row.get::<_, Option<String>>(3)?,
+                        "defaultBranch": row.get::<_, Option<String>>(4)?,
+                    }))
+                },
+            );
+            ws["project"] = proj.unwrap_or(serde_json::Value::Null);
+
+            Ok(ws)
+        }
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(serde_json::Value::Null),
         Err(e) => Err(e),
     }
@@ -48,13 +101,48 @@ pub fn get_all(db: &Database, input: serde_json::Value) -> Result<serde_json::Va
 }
 
 pub fn get_all_grouped(db: &Database, input: serde_json::Value) -> Result<serde_json::Value> {
-    let project_id = input.get("projectId").and_then(|v| v.as_str()).unwrap_or("");
+    let space_id = input.get("spaceId").and_then(|v| v.as_str());
 
-    // Get sections
+    // Get all active projects
+    let projects_sql = if space_id.is_some() {
+        "SELECT id, name, main_repo_path, color, tab_order, space_id, hide_image, icon_url FROM projects WHERE tab_order IS NOT NULL AND space_id = ?1 ORDER BY tab_order"
+    } else {
+        "SELECT id, name, main_repo_path, color, tab_order, space_id, hide_image, icon_url FROM projects WHERE tab_order IS NOT NULL ORDER BY tab_order"
+    };
+    let mut proj_stmt = db.conn.prepare(projects_sql)?;
+    let project_rows: Vec<serde_json::Value> = if let Some(sid) = space_id {
+        proj_stmt.query_map(rusqlite::params![sid], |row| {
+            Ok(serde_json::json!({
+                "id": row.get::<_, String>(0)?,
+                "name": row.get::<_, Option<String>>(1)?,
+                "mainRepoPath": row.get::<_, Option<String>>(2)?,
+                "color": row.get::<_, Option<String>>(3)?,
+                "tabOrder": row.get::<_, i64>(4)?,
+                "spaceId": row.get::<_, Option<String>>(5)?,
+                "hideImage": row.get::<_, Option<i64>>(6).map(|v| v.unwrap_or(0) != 0).unwrap_or(false),
+                "iconUrl": row.get::<_, Option<String>>(7)?,
+            }))
+        })?.collect::<Result<Vec<_>>>()?
+    } else {
+        proj_stmt.query_map([], |row| {
+            Ok(serde_json::json!({
+                "id": row.get::<_, String>(0)?,
+                "name": row.get::<_, Option<String>>(1)?,
+                "mainRepoPath": row.get::<_, Option<String>>(2)?,
+                "color": row.get::<_, Option<String>>(3)?,
+                "tabOrder": row.get::<_, i64>(4)?,
+                "spaceId": row.get::<_, Option<String>>(5)?,
+                "hideImage": row.get::<_, Option<i64>>(6).map(|v| v.unwrap_or(0) != 0).unwrap_or(false),
+                "iconUrl": row.get::<_, Option<String>>(7)?,
+            }))
+        })?.collect::<Result<Vec<_>>>()?
+    };
+
+    // Get all sections
     let mut sect_stmt = db.conn.prepare(
-        "SELECT id, project_id, name, tab_order, is_collapsed, color, created_at FROM workspace_sections WHERE project_id = ?1 ORDER BY tab_order"
+        "SELECT id, project_id, name, tab_order, is_collapsed, color FROM workspace_sections ORDER BY tab_order"
     )?;
-    let sections: Vec<serde_json::Value> = sect_stmt.query_map(rusqlite::params![project_id], |row| {
+    let all_sections: Vec<serde_json::Value> = sect_stmt.query_map([], |row| {
         Ok(serde_json::json!({
             "id": row.get::<_, String>(0)?,
             "projectId": row.get::<_, String>(1)?,
@@ -62,19 +150,67 @@ pub fn get_all_grouped(db: &Database, input: serde_json::Value) -> Result<serde_
             "tabOrder": row.get::<_, i64>(3)?,
             "isCollapsed": row.get::<_, Option<i64>>(4).map(|v| v.unwrap_or(0) != 0).unwrap_or(false),
             "color": row.get::<_, Option<String>>(5)?,
-            "createdAt": row.get::<_, i64>(6)?,
+            "workspaces": [],
         }))
     })?.collect::<Result<Vec<_>>>()?;
 
-    // Get workspaces
-    let sql = format!("SELECT {} FROM workspaces WHERE project_id = ?1 AND deleting_at IS NULL ORDER BY tab_order", WORKSPACE_COLS);
-    let mut ws_stmt = db.conn.prepare(&sql)?;
-    let workspaces: Vec<serde_json::Value> = ws_stmt.query_map(rusqlite::params![project_id], map_workspace_row)?.collect::<Result<Vec<_>>>()?;
+    // Get all workspaces
+    let ws_sql = format!("SELECT {} FROM workspaces WHERE deleting_at IS NULL ORDER BY tab_order", WORKSPACE_COLS);
+    let mut ws_stmt = db.conn.prepare(&ws_sql)?;
+    let all_workspaces: Vec<serde_json::Value> = ws_stmt.query_map([], map_workspace_row)?.collect::<Result<Vec<_>>>()?;
 
-    Ok(serde_json::json!({
-        "sections": sections,
-        "workspaces": workspaces,
-    }))
+    // Group by project
+    let mut groups: Vec<serde_json::Value> = Vec::new();
+    for project in &project_rows {
+        let pid = project["id"].as_str().unwrap_or("");
+
+        let mut sections: Vec<serde_json::Value> = all_sections.iter()
+            .filter(|s| s["projectId"].as_str() == Some(pid))
+            .cloned()
+            .collect();
+
+        let mut ungrouped: Vec<serde_json::Value> = Vec::new();
+        for ws in &all_workspaces {
+            if ws["projectId"].as_str() != Some(pid) { continue; }
+            let section_id = ws["sectionId"].as_str();
+            if let Some(sid) = section_id {
+                if let Some(sect) = sections.iter_mut().find(|s| s["id"].as_str() == Some(sid)) {
+                    sect["workspaces"].as_array_mut().unwrap().push(ws.clone());
+                } else {
+                    ungrouped.push(ws.clone());
+                }
+            } else {
+                ungrouped.push(ws.clone());
+            }
+        }
+
+        // Build topLevelItems: interleave ungrouped workspaces and sections by tabOrder
+        let mut top_level: Vec<serde_json::Value> = Vec::new();
+        for ws in &ungrouped {
+            top_level.push(serde_json::json!({
+                "id": ws["id"],
+                "kind": "workspace",
+                "tabOrder": ws["tabOrder"],
+            }));
+        }
+        for sect in &sections {
+            top_level.push(serde_json::json!({
+                "id": sect["id"],
+                "kind": "section",
+                "tabOrder": sect["tabOrder"],
+            }));
+        }
+        top_level.sort_by_key(|item| item["tabOrder"].as_i64().unwrap_or(0));
+
+        groups.push(serde_json::json!({
+            "project": project,
+            "workspaces": ungrouped,
+            "sections": sections,
+            "topLevelItems": top_level,
+        }));
+    }
+
+    Ok(serde_json::to_value(groups).unwrap())
 }
 
 pub fn get_previous_workspace(db: &Database, input: serde_json::Value) -> Result<serde_json::Value> {

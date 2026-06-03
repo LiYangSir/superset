@@ -23,7 +23,12 @@ pub fn is_maximized(window: &tauri::WebviewWindow) -> Result<serde_json::Value, 
 }
 
 pub fn get_platform() -> Result<serde_json::Value, String> {
-    Ok(serde_json::Value::String(std::env::consts::OS.to_string()))
+    let platform = match std::env::consts::OS {
+        "macos" => "darwin",
+        "windows" => "win32",
+        other => other,
+    };
+    Ok(serde_json::Value::String(platform.to_string()))
 }
 
 pub fn get_home_dir() -> Result<serde_json::Value, String> {

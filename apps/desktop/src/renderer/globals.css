@@ -181,6 +181,14 @@
 		height: 100%;
 		width: 100%;
 	}
+
+	/* WebKit Canvas measureText returns non-monospace widths for bold weight,
+	   so we set fontWeightBold="normal" for measurement. This CSS override
+	   restores the visual bold rendering that xterm.js would otherwise lose. */
+	.xterm .xterm-rows span.xterm-bold {
+		font-weight: bold !important;
+	}
+
 	.xterm .xterm-rows a {
 		color: inherit;
 		cursor: pointer;

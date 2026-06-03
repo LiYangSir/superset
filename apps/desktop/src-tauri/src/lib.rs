@@ -1,11 +1,14 @@
-mod commands;
+pub(crate) mod commands;
 mod db;
+mod tray;
 
+use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::Emitter;
 
 pub struct AppState {
     pub db: Mutex<db::Database>,
+    pub(crate) terminals: Mutex<HashMap<String, commands::terminal::TerminalSession>>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -17,6 +20,7 @@ pub fn run() {
 
     let state = AppState {
         db: Mutex::new(database),
+        terminals: Mutex::new(HashMap::new()),
     };
 
     tauri::Builder::default()
@@ -36,6 +40,10 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .manage(state)
+        .setup(|app| {
+            tray::setup_tray(app)?;
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::trpc_call,
             commands::trpc_subscribe,
