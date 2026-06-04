@@ -32,8 +32,7 @@ Use the GitHub CLI (`gh`) to create PRs.
 Before proceeding, review the diff against the relevant standards and best practices documented in:
 
 **Always check:**
-- `AGENTS.md` (root) - cross-app conventions, coding standards, architecture principles
-- `apps/desktop/AGENTS.md` - desktop-specific guidance (if desktop work)
+- `AGENTS.md` (root) - conventions, coding standards, architecture principles
 
 Create an internal checklist from AGENTS.md and review code against it.
 
@@ -76,7 +75,7 @@ Do NOT proceed with the PR. Instead, present findings to the user:
 
 ## 4. Move ExecPlan to done (if applicable)
 - If this PR completes an ExecPlan:
-  `git mv apps/<app>/plans/<plan-name>.md apps/<app>/plans/done/<plan-name>.md`
+  `git mv plans/<plan-name>.md plans/done/<plan-name>.md`
 - Fill in `Outcomes & Retrospective` first.
 - Update the PR body link to point at the `done/` path.
 - Skip if there is no ExecPlan or it spans multiple PRs.
@@ -140,7 +139,7 @@ Use **High-risk/Complex** when any of these are true:
 
     ## Testing
     List what you ran (CI will run the rest):
-    - `bun run typecheck`
+    - `npm run typecheck`
     - Manual: ... (if behavior changed)
 
     ## Notes (optional)
@@ -152,7 +151,7 @@ Use **High-risk/Complex** when any of these are true:
 ## Standard PR template
 
     **Links (optional)**
-    - ExecPlan: `apps/<app>/plans/<plan-name>.md`
+    - ExecPlan: `plans/<plan-name>.md`
     - Issue: <link>
 
     ## Summary
@@ -176,11 +175,9 @@ Use **High-risk/Complex** when any of these are true:
     - [ ] ...
 
     ## Testing
-    - `bun run typecheck` (required)
-    - `bun run lint` (required)
-    - `bun test <suite-or-file>` (when touching logic)
-    - `bun run lint:check-node-imports` (when touching Desktop renderer/shared)
-    - `bun turbo run build --filter=@superset/desktop` (when touching Desktop)
+    - `npm run typecheck` (required)
+    - `npm run lint` (required)
+    - `npm test <suite-or-file>` (when touching logic)
 
     ## Design Decisions (optional)
     - **Why X instead of Y**: Explain trade-offs when you chose between viable approaches.
@@ -201,7 +198,7 @@ Use **High-risk/Complex** when any of these are true:
 For PRs bundling multiple features, use Part headers to organize (like PR #559):
 
     **Links**
-    - ExecPlan: `apps/<app>/plans/<plan-name>.md`
+    - ExecPlan: `plans/<plan-name>.md`
     - Issue: <link>
 
     ## Summary
@@ -271,11 +268,9 @@ For PRs bundling multiple features, use Part headers to organize (like PR #559):
     ---
 
     ## Testing
-    - `bun run typecheck` (required)
-    - `bun run lint` (required)
-    - `bun test` (required)
-    - `bun run lint:check-node-imports` (when touching Desktop renderer/shared)
-    - `bun turbo run build --filter=@superset/desktop` (when touching Desktop)
+    - `npm run typecheck` (required)
+    - `npm run lint` (required)
+    - `npm test` (required)
 
     ## Design Decisions
     - **Why X instead of Y**: ...
@@ -312,19 +307,12 @@ For PRs bundling multiple features, use Part headers to organize (like PR #559):
 
 Use these as templates for the Manual QA Checklist section. Pick categories appropriate to your change.
 
-## Desktop App (Electron)
+## Desktop App (Tauri)
 
 ### General Desktop
 - [ ] App launches without errors
-- [ ] No console errors in DevTools (main + renderer)
+- [ ] No console errors in DevTools
 - [ ] Feature works after app restart
-- [ ] Ran `bun run lint:check-node-imports` (no Node.js in renderer)
-
-### tRPC over Electron IPC
-- [ ] tRPC router changes validated from renderer call-sites
-- [ ] Subscriptions use `observable` (trpc-electron constraint, not async generator)
-- [ ] Error cases return appropriate tRPC error codes
-- [ ] No type mismatches between main/renderer
 
 ### Terminal Features
 - [ ] Terminal spawns correctly
@@ -351,7 +339,7 @@ Use these as templates for the Manual QA Checklist section. Pick categories appr
 - [ ] Active workspace remembered
 
 ### Desktop Packaging & Updates
-- [ ] Packaged build launches (`bun run build` then test .app/.dmg)
+- [ ] Packaged build launches (`npm run build` then test .app/.dmg)
 - [ ] Native modules load correctly (node-pty, better-sqlite3)
 - [ ] Auto-updater doesn't crash (if touching update logic)
 - [ ] Dev mode and packaged mode both work
@@ -473,7 +461,7 @@ Use these as templates for the Manual QA Checklist section. Pick categories appr
 # Example (Standard - Desktop Feature)
 
     **Links**
-    - ExecPlan: `apps/desktop/plans/done/workspace-sidebar-exec-plan.md`
+    - ExecPlan: `plans/done/workspace-sidebar-exec-plan.md`
 
     ## Summary
     - Add configurable workspace navigation sidebar as alternative to top bar tabs.
@@ -513,9 +501,8 @@ Use these as templates for the Manual QA Checklist section. Pick categories appr
     - [ ] Cmd+Left/Right navigates workspaces
 
     ## Testing
-    - `bun run typecheck`
-    - `bun run lint`
-    - `bun run lint:check-node-imports`
+    - `npm run typecheck`
+    - `npm run lint`
     - Manual testing in dev mode
 
     ## Design Decisions

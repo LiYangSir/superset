@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import type { Event as ParcelWatcherEvent } from "@parcel/watcher";
 import type { WorkspaceFsWatchEvent } from "./types";
 import { coalesceWatchEvents, reconcileRenameEvents } from "./watch";

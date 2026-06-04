@@ -18,7 +18,7 @@
 	"scripts": {
 		"clean": "git clean -xdf .cache .turbo dist node_modules",
 		"typecheck": "tsc --noEmit --emitDeclarationOnly false",
-		"ui-add": "bunx shadcn@latest add"
+		"ui-add": "npx shadcn@latest add"
 	},
 	"dependencies": {
 		"@hookform/resolvers": "^5.2.2",
@@ -50,7 +50,7 @@
 		"@radix-ui/react-tooltip": "^1.2.8",
 		"@radix-ui/react-use-controllable-state": "^1.2.2",
 		"@streamdown/mermaid": "^1.0.2",
-		"@superset/shared": "workspace:*",
+		"@superset/shared": "*",
 		"@xyflow/react": "^12.10.0",
 		"ai": "^6.0.0",
 		"class-variance-authority": "^0.7.1",
@@ -80,7 +80,7 @@
 		"zod": "^4.3.5"
 	},
 	"devDependencies": {
-		"@superset/typescript": "workspace:*",
+		"@superset/typescript": "*",
 		"@tailwindcss/postcss": "^4.0.9",
 		"@types/react": "~19.2.2",
 		"react": "19.2.0",

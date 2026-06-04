@@ -1,0 +1,12 @@
+{
+  "identifier": "native-terminal",
+  "description": "Permissions for the native GPU terminal window",
+  "windows": ["native-terminal"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-close",
+    "core:window:allow-set-size",
+    "core:window:allow-set-title"
+  ]
+}

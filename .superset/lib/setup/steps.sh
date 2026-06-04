@@ -66,7 +66,7 @@ step_install_dependencies() {
     return 1
   fi
 
-  if ! bun install; then
+  if ! npm install; then
     error "Failed to install dependencies"
     return 1
   fi

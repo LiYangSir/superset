@@ -1,7 +1,5 @@
 <div align="center">
 
-<img width="full" alt="Superset" src="apps/marketing/public/images/readme-hero.png" />
-
 ### The Terminal for Coding Agents
 
 [![GitHub stars](https://img.shields.io/github/stars/superset-sh/superset?style=flat&logo=github)](https://github.com/superset-sh/superset/stargazers)
@@ -16,12 +14,11 @@
 
 <br />
 
-
 </div>
 
 ## Why Superset?
 
-Superset is a turbocharged terminal that allows you to run any CLI coding agents along with the tools to 10x your development workflow. 
+Superset is a turbocharged terminal that allows you to run any CLI coding agents along with the tools to 10x your development workflow.
 
 - **Run multiple agents simultaneously** without context switching overhead
 - **Isolate each task** in its own git worktree so agents don't interfere with each other
@@ -64,10 +61,9 @@ If it runs in a terminal, it runs on Superset
 | Requirement | Details |
 |:------------|:--------|
 | **OS** | macOS (Windows/Linux untested) |
-| **Runtime** | [Bun](https://bun.sh/) v1.0+ |
+| **Runtime** | [Node.js](https://nodejs.org/) v18+ with npm |
 | **Version Control** | Git 2.20+ |
-| **GitHub CLI** | [gh](https://cli.github.com/) |
-| **Caddy** | [caddy](https://caddyserver.com/docs/install) (for dev server) |
+| **Rust** | [Rust](https://rustup.rs/) (for building from source) |
 
 ## Getting Started
 
@@ -87,39 +83,22 @@ git clone https://github.com/superset-sh/superset.git
 cd superset
 ```
 
-**2. Set up environment variables** (choose one):
+**2. Install dependencies**
 
-Option A: Full setup
 ```bash
-cp .env.example .env
-# Edit .env and fill in the values
+npm install
 ```
 
-Option B: Skip env validation (for quick local testing)
+**3. Run in development mode**
+
 ```bash
-cp .env.example .env
-echo 'SKIP_ENV_VALIDATION=1' >> .env
+npm run tauri:dev
 ```
 
-**3. Set up Caddy** (reverse proxy for Electric SQL streams):
+**4. Build the desktop app**
 
 ```bash
-# Install caddy: brew install caddy (macOS) or see https://caddyserver.com/docs/install
-cp Caddyfile.example Caddyfile
-```
-
-**4. Install dependencies and run**
-
-```bash
-bun install
-bun run dev
-```
-
-**5. Build the desktop app**
-
-```bash
-bun run build
-open apps/desktop/release
+npm run tauri:build
 ```
 
 </details>
@@ -186,7 +165,7 @@ Configure workspace setup and teardown in `.superset/config.json`. See [full doc
 cp ../.env .env
 
 # Install dependencies
-bun install
+npm install
 
 # Run any other setup tasks
 echo "Workspace ready!"
@@ -196,22 +175,15 @@ Scripts have access to environment variables:
 - `SUPERSET_WORKSPACE_NAME` — Name of the workspace
 - `SUPERSET_ROOT_PATH` — Path to the main repository
 
-## Internal Dependency Overrides
-
-For the internal `mastracode` fork/bundle workflow used by this repo, see [docs/mastracode-fork-workflow.md](docs/mastracode-fork-workflow.md).
-
 ## Tech Stack
 
 <p>
-  <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/Electron-191970?logo=Electron&logoColor=white" alt="Electron" /></a>
+  <a href="https://v2.tauri.app/"><img src="https://img.shields.io/badge/Tauri%20v2-24C8D8?logo=tauri&logoColor=white" alt="Tauri" /></a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white" alt="Rust" /></a>
   <a href="https://reactjs.org/"><img src="https://img.shields.io/badge/React-%2320232a.svg?logo=react&logoColor=%2361DAFB" alt="React" /></a>
   <a href="https://tailwindcss.com/"><img src="https://img.shields.io/badge/Tailwindcss-%2338B2AC.svg?logo=tailwind-css&logoColor=white" alt="TailwindCSS" /></a>
-  <a href="https://bun.sh/"><img src="https://img.shields.io/badge/Bun-000000?logo=bun&logoColor=white" alt="Bun" /></a>
-  <a href="https://turbo.build/"><img src="https://img.shields.io/badge/Turborepo-EF4444?logo=turborepo&logoColor=white" alt="Turborepo" /></a>
   <a href="https://vitejs.dev/"><img src="https://img.shields.io/badge/Vite-%23646CFF.svg?logo=vite&logoColor=white" alt="Vite" /></a>
   <a href="https://biomejs.dev/"><img src="https://img.shields.io/badge/Biome-339AF0?logo=biome&logoColor=white" alt="Biome" /></a>
-  <a href="https://orm.drizzle.team/"><img src="https://img.shields.io/badge/Drizzle%20ORM-FFE873?logo=drizzle&logoColor=black" alt="Drizzle ORM" /></a>
-  <a href="https://neon.tech/"><img src="https://img.shields.io/badge/Neon-00E9CA?logo=neon&logoColor=white" alt="Neon" /></a>
   <a href="https://trpc.io/"><img src="https://img.shields.io/badge/tRPC-2596BE?logo=trpc&logoColor=white" alt="tRPC" /></a>
 </p>
 
@@ -241,12 +213,6 @@ Join the Superset community to get help, share feedback, and connect with other 
 - **[Twitter](https://x.com/superset_sh)** — Follow for updates and announcements
 - **[GitHub Issues](https://github.com/superset-sh/superset/issues)** — Report bugs and request features
 - **[GitHub Discussions](https://github.com/superset-sh/superset/discussions)** — Ask questions and share ideas
-
-### Team
-
-[![Avi Twitter](https://img.shields.io/badge/Avi-@avimakesrobots-555?logo=x)](https://x.com/avimakesrobots)
-[![Kiet Twitter](https://img.shields.io/badge/Kiet-@flyakiet-555?logo=x)](https://x.com/flyakiet)
-[![Satya Twitter](https://img.shields.io/badge/Satya-@saddle__paddle-555?logo=x)](https://x.com/saddle_paddle)
 
 ## License
 

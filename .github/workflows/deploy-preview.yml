@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths-ignore:
-      - "apps/desktop/**"
+      - "src-tauri/**"
 
 concurrency:
   group: preview-${{ github.event.pull_request.number }}

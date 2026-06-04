@@ -28,9 +28,8 @@
 		"zod": "^4.3.5"
 	},
 	"devDependencies": {
-		"@superset/typescript": "workspace:*",
+		"@superset/typescript": "*",
 		"@types/uuid": "^11.0.0",
-		"bun-types": "^1.3.1",
 		"drizzle-kit": "0.31.8",
 		"typescript": "^5.9.3"
 	}

@@ -23,7 +23,7 @@
 	},
 	"scripts": {
 		"typecheck": "tsc --noEmit --emitDeclarationOnly false",
-		"test": "bun test --pass-with-no-tests"
+		"test": "vitest run"
 	},
 	"dependencies": {
 		"@parcel/watcher": "^2.5.6",
@@ -31,7 +31,7 @@
 		"fuse.js": "^7.1.0"
 	},
 	"devDependencies": {
-		"@superset/typescript": "workspace:*",
+		"@superset/typescript": "*",
 		"@types/node": "^24.9.1",
 		"typescript": "^5.9.3"
 	}

@@ -21,8 +21,8 @@ tree [directory] -I node_modules
 
 **5. Verify changes** by running:
 ```bash
-bun run typecheck
-bun run lint
+npm run typecheck
+npm run lint
 ```
 
 ## Rules

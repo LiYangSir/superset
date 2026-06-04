@@ -9,10 +9,10 @@ Run all CI checks locally to validate the project.
 
 Run these four commands **in parallel** and report all results:
 
-1. `bun run lint:fix` — Biome formatting + linting (auto-fixes)
-2. `bun run typecheck` — TypeScript type checking across all packages
-3. `bun test` — Run all tests
-4. `bunx sherif --fix` — Monorepo dependency linting (auto-fixes)
+1. `npm run lint:fix` — Biome formatting + linting (auto-fixes)
+2. `npm run typecheck` — TypeScript type checking across all packages
+3. `npm test` — Run all tests
+4. `npx sherif --fix` — Monorepo dependency linting (auto-fixes)
 
 ## Output
 
