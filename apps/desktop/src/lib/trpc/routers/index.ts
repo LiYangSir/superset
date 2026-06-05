@@ -1,5 +1,6 @@
 import type { BrowserWindow } from "electron";
 import { router } from "..";
+import { createAgentActivitiesRouter } from "./agent-activities";
 import { createBrowserRouter } from "./browser/browser";
 import { createBrowserHistoryRouter } from "./browser-history";
 import { createChangesRouter } from "./changes";
@@ -16,6 +17,7 @@ import { createProjectsRouter } from "./projects";
 import { createResourceMetricsRouter } from "./resource-metrics";
 import { createRingtoneRouter } from "./ringtone";
 import { createSettingsRouter } from "./settings";
+import { createSkillsRouter } from "./skills";
 import { createSpacesRouter } from "./spaces";
 import { createTabAiRouter } from "./tab-ai";
 import { createTasksRouter } from "./tasks";
@@ -26,6 +28,7 @@ import { createWorkspacesRouter } from "./workspaces";
 
 export const createAppRouter = (getWindow: () => BrowserWindow | null) => {
 	return router({
+		agentActivities: createAgentActivitiesRouter(),
 		browser: createBrowserRouter(),
 		browserHistory: createBrowserHistoryRouter(),
 		window: createWindowRouter(getWindow),
@@ -42,6 +45,7 @@ export const createAppRouter = (getWindow: () => BrowserWindow | null) => {
 		hotkeys: createHotkeysRouter(getWindow),
 		external: createExternalRouter(),
 		settings: createSettingsRouter(),
+		skills: createSkillsRouter(),
 		spaces: createSpacesRouter(),
 		tasks: createTasksRouter(),
 		memory: createMemoryRouter(),
