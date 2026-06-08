@@ -14,9 +14,17 @@ import ts from "typescript";
 import { mainExternalizedDependencies } from "../runtime-dependencies";
 
 const projectRoot = join(import.meta.dirname, "..");
+// Install-time only requires emitted by sharp's libvips bootstrap (a transitive
+// dep of @huggingface/transformers). They live behind try/catch and only run
+// during sharp's npm install scripts, never at runtime in packaged Electron.
+const installTimeOnlyRequirePackages = new Set([
+	"@img/sharp-libvips-dev",
+	"@img/sharp-wasm32",
+]);
 const allowedBareRequirePackages = new Set([
 	"electron",
 	...mainExternalizedDependencies,
+	...installTimeOnlyRequirePackages,
 ]);
 const builtinModuleSpecifiers = new Set([
 	...builtinModules,
