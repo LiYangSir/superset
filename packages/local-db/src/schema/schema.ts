@@ -1,4 +1,10 @@
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+	index,
+	integer,
+	real,
+	sqliteTable,
+	text,
+} from "drizzle-orm/sqlite-core";
 import { v4 as uuidv4 } from "uuid";
 
 import type {
@@ -70,6 +76,9 @@ export const projects = sqliteTable(
 		spaceId: text("space_id").references(() => spaces.id, {
 			onDelete: "restrict",
 		}),
+		weeklyReportEnabled: integer("weekly_report_enabled", {
+			mode: "boolean",
+		}).default(true),
 	},
 	(table) => [
 		index("projects_main_repo_path_idx").on(table.mainRepoPath),
@@ -522,3 +531,510 @@ export const memories = sqliteTable(
 
 export type InsertMemory = typeof memories.$inferInsert;
 export type SelectMemory = typeof memories.$inferSelect;
+
+// =============================================================================
+// Cognitive Memory System — MemOS-inspired multi-layer memory architecture
+// L1 Traces → L2 Policies → L3 World Models → Skills
+// =============================================================================
+
+export type EpisodeStatus = "open" | "finalized";
+
+export const memoryEpisodes = sqliteTable(
+	"memory_episodes",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => uuidv4()),
+		projectId: text("project_id").references(() => projects.id, {
+			onDelete: "cascade",
+		}),
+		workspaceId: text("workspace_id").references(() => workspaces.id, {
+			onDelete: "set null",
+		}),
+		agentActivityId: text("agent_activity_id").references(
+			() => agentActivities.id,
+			{ onDelete: "set null" },
+		),
+		title: text("title").notNull(),
+		summary: text("summary"),
+		status: text("status").notNull().$type<EpisodeStatus>().default("open"),
+		rHuman: real("r_human"),
+		rGoalAchievement: real("r_goal_achievement"),
+		rProcessQuality: real("r_process_quality"),
+		rUserSatisfaction: real("r_user_satisfaction"),
+		topicSignature: text("topic_signature"),
+		traceCount: integer("trace_count").notNull().default(0),
+		createdAt: integer("created_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+		updatedAt: integer("updated_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+	},
+	(table) => [
+		index("memory_episodes_project_id_idx").on(table.projectId),
+		index("memory_episodes_status_idx").on(table.status),
+		index("memory_episodes_created_at_idx").on(table.createdAt),
+		index("memory_episodes_agent_activity_id_idx").on(table.agentActivityId),
+	],
+);
+
+export type InsertMemoryEpisode = typeof memoryEpisodes.$inferInsert;
+export type SelectMemoryEpisode = typeof memoryEpisodes.$inferSelect;
+
+/**
+ * L1 Traces — one row per (think + action + observation) step within an episode.
+ * Stores raw interaction data with algorithmic signals for reward backpropagation.
+ */
+export const memoryTraces = sqliteTable(
+	"memory_traces",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => uuidv4()),
+		episodeId: text("episode_id")
+			.notNull()
+			.references(() => memoryEpisodes.id, { onDelete: "cascade" }),
+		projectId: text("project_id").references(() => projects.id, {
+			onDelete: "cascade",
+		}),
+		turnIndex: integer("turn_index").notNull(),
+		userText: text("user_text"),
+		agentText: text("agent_text"),
+		toolCalls: text("tool_calls", { mode: "json" }).$type<
+			Array<{ tool: string; input: string; output: string }>
+		>(),
+		agentThinking: text("agent_thinking"),
+		reflection: text("reflection"),
+		value: real("value"),
+		alpha: real("alpha"),
+		priority: real("priority"),
+		tags: text("tags", { mode: "json" }).$type<string[]>(),
+		errorSignatures: text("error_signatures", { mode: "json" }).$type<
+			string[]
+		>(),
+		vecSummary: text("vec_summary", { mode: "json" }).$type<number[]>(),
+		vecAction: text("vec_action", { mode: "json" }).$type<number[]>(),
+		createdAt: integer("created_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+	},
+	(table) => [
+		index("memory_traces_episode_id_idx").on(table.episodeId),
+		index("memory_traces_project_id_idx").on(table.projectId),
+		index("memory_traces_priority_idx").on(table.priority),
+		index("memory_traces_created_at_idx").on(table.createdAt),
+	],
+);
+
+export type InsertMemoryTrace = typeof memoryTraces.$inferInsert;
+export type SelectMemoryTrace = typeof memoryTraces.$inferSelect;
+
+/**
+ * L2 Policies — cross-task procedural knowledge induced from patterns across traces.
+ * Structure: trigger (when) → procedure (do) → verification (check) → boundary (never).
+ */
+export type PolicyExperienceType =
+	| "success_pattern"
+	| "failure_avoidance"
+	| "preference"
+	| "workflow"
+	| "style";
+
+export type PolicyStatus = "candidate" | "active" | "archived";
+
+export const memoryPolicies = sqliteTable(
+	"memory_policies",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => uuidv4()),
+		projectId: text("project_id").references(() => projects.id, {
+			onDelete: "cascade",
+		}),
+		trigger: text("trigger").notNull(),
+		procedure: text("procedure").notNull(),
+		verification: text("verification"),
+		boundary: text("boundary"),
+		experienceType: text("experience_type")
+			.notNull()
+			.$type<PolicyExperienceType>()
+			.default("preference"),
+		status: text("status")
+			.notNull()
+			.$type<PolicyStatus>()
+			.default("candidate"),
+		support: integer("support").notNull().default(1),
+		gain: real("gain"),
+		decisionGuidance: text("decision_guidance"),
+		category: text("category"),
+		scope: text("scope").notNull().$type<MemoryScope>().default("global"),
+		vecSummary: text("vec_summary", { mode: "json" }).$type<number[]>(),
+		sourceTraceIds: text("source_trace_ids", { mode: "json" }).$type<
+			string[]
+		>(),
+		sourceEpisodeIds: text("source_episode_ids", { mode: "json" }).$type<
+			string[]
+		>(),
+		createdAt: integer("created_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+		updatedAt: integer("updated_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+	},
+	(table) => [
+		index("memory_policies_project_id_idx").on(table.projectId),
+		index("memory_policies_status_idx").on(table.status),
+		index("memory_policies_experience_type_idx").on(table.experienceType),
+		index("memory_policies_scope_idx").on(table.scope),
+		index("memory_policies_category_idx").on(table.category),
+	],
+);
+
+export type InsertMemoryPolicy = typeof memoryPolicies.$inferInsert;
+export type SelectMemoryPolicy = typeof memoryPolicies.$inferSelect;
+
+/**
+ * L3 World Models — stable environmental/declarative knowledge.
+ * Three types: environment (topology), inference (behavioral rules), constraint (taboos).
+ */
+export type WorldModelType = "environment" | "inference" | "constraint";
+export type WorldModelStatus = "active" | "archived";
+
+export const memoryWorldModels = sqliteTable(
+	"memory_world_models",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => uuidv4()),
+		projectId: text("project_id").references(() => projects.id, {
+			onDelete: "cascade",
+		}),
+		modelType: text("model_type")
+			.notNull()
+			.$type<WorldModelType>(),
+		content: text("content").notNull(),
+		confidence: real("confidence").notNull().default(0.5),
+		domainTags: text("domain_tags", { mode: "json" }).$type<string[]>(),
+		scope: text("scope").notNull().$type<MemoryScope>().default("global"),
+		status: text("status")
+			.notNull()
+			.$type<WorldModelStatus>()
+			.default("active"),
+		sourcePolicyIds: text("source_policy_ids", { mode: "json" }).$type<
+			string[]
+		>(),
+		vecSummary: text("vec_summary", { mode: "json" }).$type<number[]>(),
+		createdAt: integer("created_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+		updatedAt: integer("updated_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+	},
+	(table) => [
+		index("memory_world_models_project_id_idx").on(table.projectId),
+		index("memory_world_models_model_type_idx").on(table.modelType),
+		index("memory_world_models_status_idx").on(table.status),
+		index("memory_world_models_scope_idx").on(table.scope),
+	],
+);
+
+export type InsertMemoryWorldModel = typeof memoryWorldModels.$inferInsert;
+export type SelectMemoryWorldModel = typeof memoryWorldModels.$inferSelect;
+
+/**
+ * Memory Skills — crystallized callable capabilities refined from L2 policies + L3 world models.
+ * eta tracks adoption rate via Beta(1,1) posterior: eta = (trialsPassed+1)/(trialsAttempted+2).
+ */
+export type MemorySkillStatus = "candidate" | "active" | "archived";
+
+export const memorySkills = sqliteTable(
+	"memory_skills",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => uuidv4()),
+		projectId: text("project_id").references(() => projects.id, {
+			onDelete: "cascade",
+		}),
+		name: text("name").notNull(),
+		invocationGuide: text("invocation_guide").notNull(),
+		procedureJson: text("procedure_json", { mode: "json" }).$type<
+			Array<{ step: number; action: string; detail: string }>
+		>(),
+		eta: real("eta").notNull().default(0),
+		trialsAttempted: integer("trials_attempted").notNull().default(0),
+		trialsPassed: integer("trials_passed").notNull().default(0),
+		evidenceAnchors: text("evidence_anchors", { mode: "json" }).$type<
+			string[]
+		>(),
+		status: text("status")
+			.notNull()
+			.$type<MemorySkillStatus>()
+			.default("candidate"),
+		scope: text("scope").notNull().$type<MemoryScope>().default("global"),
+		vecSummary: text("vec_summary", { mode: "json" }).$type<number[]>(),
+		createdAt: integer("created_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+		updatedAt: integer("updated_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+	},
+	(table) => [
+		index("memory_skills_project_id_idx").on(table.projectId),
+		index("memory_skills_status_idx").on(table.status),
+		index("memory_skills_scope_idx").on(table.scope),
+		index("memory_skills_eta_idx").on(table.eta),
+	],
+);
+
+export type InsertMemorySkill = typeof memorySkills.$inferInsert;
+export type SelectMemorySkill = typeof memorySkills.$inferSelect;
+
+// =============================================================================
+// Agent Activities - tracks agent lifecycle events per workspace/branch
+// =============================================================================
+
+export type AgentActivityStatus = "in_progress" | "completed" | "failed";
+
+export const agentActivities = sqliteTable(
+	"agent_activities",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => uuidv4()),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => workspaces.id, { onDelete: "cascade" }),
+		projectId: text("project_id")
+			.notNull()
+			.references(() => projects.id, { onDelete: "cascade" }),
+		tabId: text("tab_id"),
+		paneId: text("pane_id"),
+		tabName: text("tab_name"),
+		presetName: text("preset_name"),
+		modelName: text("model_name"),
+		branch: text("branch").notNull(),
+		status: text("status").notNull().default("in_progress"),
+		title: text("title"),
+		summary: text("summary"),
+		userMessage: text("user_message"),
+		metadata: text("metadata"),
+		startedAt: integer("started_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+		endedAt: integer("ended_at"),
+		durationMs: integer("duration_ms"),
+		createdAt: integer("created_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+		updatedAt: integer("updated_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+		archivedAt: integer("archived_at"),
+	},
+	(table) => [
+		index("agent_activities_workspace_id_idx").on(table.workspaceId),
+		index("agent_activities_project_id_idx").on(table.projectId),
+		index("agent_activities_branch_idx").on(table.branch),
+		index("agent_activities_status_idx").on(table.status),
+		index("agent_activities_started_at_idx").on(table.startedAt),
+		index("agent_activities_archived_at_idx").on(table.archivedAt),
+	],
+);
+
+export type InsertAgentActivity = typeof agentActivities.$inferInsert;
+export type SelectAgentActivity = typeof agentActivities.$inferSelect;
+
+// =============================================================================
+// Skills management tables
+// =============================================================================
+
+export type SkillSourceType = "local" | "import" | "git" | "skillssh";
+export type SkillUpdateStatus =
+	| "up_to_date"
+	| "update_available"
+	| "unknown"
+	| "checking"
+	| "updating"
+	| "error"
+	| "local_only"
+	| "source_missing";
+export type SkillSyncMode = "symlink" | "copy";
+export type SkillSyncStatus =
+	| "synced"
+	| "pending"
+	| "error"
+	| "removed"
+	| "orphaned";
+export type SkillToolCategory = "coding" | "lobster";
+
+export const skills = sqliteTable(
+	"skills",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => uuidv4()),
+		name: text("name").notNull(),
+		description: text("description"),
+		sourceType: text("source_type").notNull().$type<SkillSourceType>(),
+		sourceRef: text("source_ref"),
+		sourceRefResolved: text("source_ref_resolved"),
+		sourceSubpath: text("source_subpath"),
+		sourceBranch: text("source_branch"),
+		sourceRevision: text("source_revision"),
+		remoteRevision: text("remote_revision"),
+		updateStatus: text("update_status")
+			.notNull()
+			.$type<SkillUpdateStatus>()
+			.default("unknown"),
+		lastCheckedAt: integer("last_checked_at"),
+		lastCheckError: text("last_check_error"),
+		centralPath: text("central_path").notNull().unique(),
+		contentHash: text("content_hash"),
+		enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+		tags: text("tags", { mode: "json" }).$type<string[]>().default([]),
+		createdAt: integer("created_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+		updatedAt: integer("updated_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+	},
+	(table) => [
+		index("skills_source_type_idx").on(table.sourceType),
+		index("skills_central_path_idx").on(table.centralPath),
+		index("skills_update_status_idx").on(table.updateStatus),
+	],
+);
+
+export type InsertSkill = typeof skills.$inferInsert;
+export type SelectSkill = typeof skills.$inferSelect;
+
+export const skillTargets = sqliteTable(
+	"skill_targets",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => uuidv4()),
+		skillId: text("skill_id")
+			.notNull()
+			.references(() => skills.id, { onDelete: "cascade" }),
+		tool: text("tool").notNull(),
+		targetPath: text("target_path").notNull(),
+		mode: text("mode").notNull().$type<SkillSyncMode>().default("symlink"),
+		status: text("status")
+			.notNull()
+			.$type<SkillSyncStatus>()
+			.default("pending"),
+		syncedAt: integer("synced_at"),
+		sourceHash: text("source_hash"),
+		lastError: text("last_error"),
+	},
+	(table) => [
+		index("skill_targets_skill_id_idx").on(table.skillId),
+		index("skill_targets_tool_idx").on(table.tool),
+	],
+);
+
+export type InsertSkillTarget = typeof skillTargets.$inferInsert;
+export type SelectSkillTarget = typeof skillTargets.$inferSelect;
+
+export const skillPresets = sqliteTable("skill_presets", {
+	id: text("id")
+		.primaryKey()
+		.$defaultFn(() => uuidv4()),
+	name: text("name").notNull(),
+	description: text("description"),
+	icon: text("icon"),
+	sortOrder: integer("sort_order").notNull().default(0),
+	isActive: integer("is_active", { mode: "boolean" }).notNull().default(false),
+	createdAt: integer("created_at")
+		.notNull()
+		.$defaultFn(() => Date.now()),
+	updatedAt: integer("updated_at")
+		.notNull()
+		.$defaultFn(() => Date.now()),
+});
+
+export type InsertSkillPreset = typeof skillPresets.$inferInsert;
+export type SelectSkillPreset = typeof skillPresets.$inferSelect;
+
+export const skillPresetSkills = sqliteTable(
+	"skill_preset_skills",
+	{
+		presetId: text("preset_id")
+			.notNull()
+			.references(() => skillPresets.id, { onDelete: "cascade" }),
+		skillId: text("skill_id")
+			.notNull()
+			.references(() => skills.id, { onDelete: "cascade" }),
+		sortOrder: integer("sort_order").notNull().default(0),
+	},
+	(table) => [
+		index("skill_preset_skills_preset_id_idx").on(table.presetId),
+		index("skill_preset_skills_skill_id_idx").on(table.skillId),
+	],
+);
+
+export type InsertSkillPresetSkill = typeof skillPresetSkills.$inferInsert;
+export type SelectSkillPresetSkill = typeof skillPresetSkills.$inferSelect;
+
+export const skillPresetToolToggles = sqliteTable(
+	"skill_preset_tool_toggles",
+	{
+		presetId: text("preset_id")
+			.notNull()
+			.references(() => skillPresets.id, { onDelete: "cascade" }),
+		skillId: text("skill_id")
+			.notNull()
+			.references(() => skills.id, { onDelete: "cascade" }),
+		tool: text("tool").notNull(),
+		enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+	},
+	(table) => [
+		index("skill_preset_tool_toggles_preset_id_idx").on(table.presetId),
+		index("skill_preset_tool_toggles_skill_id_idx").on(table.skillId),
+	],
+);
+
+export type InsertSkillPresetToolToggle =
+	typeof skillPresetToolToggles.$inferInsert;
+export type SelectSkillPresetToolToggle =
+	typeof skillPresetToolToggles.$inferSelect;
+
+export const skillSettings = sqliteTable("skill_settings", {
+	key: text("key").primaryKey(),
+	value: text("value"),
+});
+
+export type InsertSkillSetting = typeof skillSettings.$inferInsert;
+export type SelectSkillSetting = typeof skillSettings.$inferSelect;
+
+export const skillAuditLog = sqliteTable(
+	"skill_audit_log",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => uuidv4()),
+		action: text("action").notNull(),
+		skillId: text("skill_id"),
+		skillName: text("skill_name"),
+		tool: text("tool"),
+		detail: text("detail"),
+		success: integer("success", { mode: "boolean" }).notNull().default(true),
+		createdAt: integer("created_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+	},
+	(table) => [
+		index("skill_audit_log_action_idx").on(table.action),
+		index("skill_audit_log_created_at_idx").on(table.createdAt),
+	],
+);
+
+export type InsertSkillAuditLog = typeof skillAuditLog.$inferInsert;
+export type SelectSkillAuditLog = typeof skillAuditLog.$inferSelect;

@@ -366,8 +366,7 @@ export function PresetsBar() {
 				</Tooltip>
 				<DropdownMenuContent align="start" className="w-56">
 					{managedPresets.map((item) => {
-						const icon =
-							item.iconUrl || getPresetIcon(item.iconName, isDark);
+						const icon = item.iconUrl || getPresetIcon(item.iconName, isDark);
 						const iconSizeClass = item.iconUrl
 							? "size-4"
 							: (getPresetIconSizeClass(item.iconName) ?? "size-4");

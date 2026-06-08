@@ -86,8 +86,9 @@ export function ProjectSection({
 		return ids;
 	}, [workspaces, sections]);
 
-	const totalTabCount = useTabsStore((state) =>
-		state.tabs.filter((t) => projectWorkspaceIds.has(t.workspaceId)).length,
+	const totalTabCount = useTabsStore(
+		(state) =>
+			state.tabs.filter((t) => projectWorkspaceIds.has(t.workspaceId)).length,
 	);
 
 	const { orderedWorkspaceIds, topLevelChildren } = useMemo(() => {

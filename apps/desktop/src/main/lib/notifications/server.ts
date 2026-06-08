@@ -115,16 +115,17 @@ app.get("/hook/complete", (req, res) => {
 		env: clientEnv,
 		version,
 		userMessage,
+		toolName,
+		toolInput,
 	} = req.query;
 
-	// Environment validation: detect dev/prod cross-talk
-	// We still return success to not block the agent, but log a warning
+	// Environment validation: log mismatch but still process the request
 	if (clientEnv && clientEnv !== SERVER_ENV) {
-		console.warn(
-			`[notifications] Environment mismatch: received ${clientEnv} request on ${SERVER_ENV} server. ` +
-				`This may indicate a stale hook or misconfigured terminal. Ignoring request.`,
-		);
-		return res.json({ success: true, ignored: true, reason: "env_mismatch" });
+		if (DEBUG_HOOKS_ENABLED) {
+			console.log(
+				`[notifications] Environment mismatch: ${clientEnv} → ${SERVER_ENV} (proceeding anyway)`,
+			);
+		}
 	}
 
 	// Log version for debugging (helpful when troubleshooting hook issues)
@@ -152,12 +153,27 @@ app.get("/hook/complete", (req, res) => {
 		sessionId as string | undefined,
 	);
 
+	const TASK_TOOLS = new Set([
+		"TaskCreate",
+		"TaskUpdate",
+		"TaskGet",
+		"TaskList",
+	]);
+	const resolvedEventType =
+		toolName &&
+		TASK_TOOLS.has(toolName as string) &&
+		mappedEventType === "Start"
+			? ("ToolUse" as const)
+			: mappedEventType;
+
 	const event: AgentLifecycleEvent = {
 		paneId: resolvedPaneId,
 		tabId: tabId as string | undefined,
 		workspaceId: workspaceId as string | undefined,
-		eventType: mappedEventType,
+		eventType: resolvedEventType,
 		...(userMessage ? { userMessage: userMessage as string } : {}),
+		...(toolName ? { toolName: toolName as string } : {}),
+		...(toolInput ? { toolInput: toolInput as string } : {}),
 	};
 
 	if (DEBUG_HOOKS_ENABLED) {

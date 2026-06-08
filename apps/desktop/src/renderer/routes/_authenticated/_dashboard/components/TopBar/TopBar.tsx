@@ -3,6 +3,7 @@ import { HiOutlineWifi } from "react-icons/hi2";
 import { useOnlineStatus } from "renderer/hooks/useOnlineStatus";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getWorkspaceDisplayName } from "renderer/lib/getWorkspaceDisplayName";
+import { GlobalActivityIndicator } from "./components/GlobalActivityIndicator";
 import { NavigationControls } from "./components/NavigationControls";
 import { OpenInMenuButton } from "./components/OpenInMenuButton";
 import { ResourceConsumption } from "./components/ResourceConsumption";
@@ -59,6 +60,7 @@ export function TopBar() {
 						<span>Offline</span>
 					</div>
 				)}
+				<GlobalActivityIndicator />
 				{workspace?.worktreePath && (
 					<OpenInMenuButton
 						worktreePath={workspace.worktreePath}

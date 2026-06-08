@@ -6,14 +6,12 @@ export function mapEventType(
 	| "PermissionRequest"
 	| "SessionEnd"
 	| "UserPrompt"
+	| "ToolUse"
 	| null {
 	if (!eventType) {
 		return null;
 	}
-	if (
-		eventType === "UserPromptSubmit" ||
-		eventType === "userPromptSubmitted"
-	) {
+	if (eventType === "UserPromptSubmit" || eventType === "userPromptSubmitted") {
 		return "UserPrompt";
 	}
 	if (

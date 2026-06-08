@@ -43,6 +43,18 @@ if [ "$EVENT_TYPE" = "UserPromptSubmit" ] || [ "$EVENT_TYPE" = "userPromptSubmit
   USER_MESSAGE=$(echo "$INPUT" | grep -oE '"prompt"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/^"prompt"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//' | cut -c1-500)
 fi
 
+# Extract tool_name and tool_input for PostToolUse events (task/subagent tracking)
+TOOL_NAME=""
+TOOL_INPUT=""
+if [ "$EVENT_TYPE" = "PostToolUse" ] || [ "$EVENT_TYPE" = "PostToolUseFailure" ]; then
+  TOOL_NAME=$(echo "$INPUT" | grep -oE '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -oE '"[^"]*"$' | tr -d '"')
+  case "$TOOL_NAME" in
+    TaskCreate|TaskUpdate|TaskGet|TaskList)
+      TOOL_INPUT=$(echo "$INPUT" | grep -oE '"tool_result"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/^"tool_result"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//' | cut -c1-1000)
+      ;;
+  esac
+fi
+
 # If no event type was found, skip the notification
 # This prevents parse failures from causing false completion notifications
 [ -z "$EVENT_TYPE" ] && exit 0
@@ -79,6 +91,8 @@ if [ "$DEBUG_HOOKS_ENABLED" = "1" ]; then
     --data-urlencode "env=$SUPERSET_ENV" \
     --data-urlencode "version=$SUPERSET_HOOK_VERSION" \
     --data-urlencode "userMessage=$USER_MESSAGE" \
+    --data-urlencode "toolName=$TOOL_NAME" \
+    --data-urlencode "toolInput=$TOOL_INPUT" \
     -o /dev/null -w "%{http_code}" 2>/dev/null)
   echo "[notify-hook] dispatched status=$STATUS_CODE" >&2
 else
@@ -94,6 +108,8 @@ else
     --data-urlencode "env=$SUPERSET_ENV" \
     --data-urlencode "version=$SUPERSET_HOOK_VERSION" \
     --data-urlencode "userMessage=$USER_MESSAGE" \
+    --data-urlencode "toolName=$TOOL_NAME" \
+    --data-urlencode "toolInput=$TOOL_INPUT" \
     > /dev/null 2>&1
 fi
 

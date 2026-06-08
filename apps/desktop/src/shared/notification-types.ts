@@ -15,6 +15,9 @@ export interface AgentLifecycleEvent extends NotificationIds {
 		| "Stop"
 		| "PermissionRequest"
 		| "SessionEnd"
-		| "UserPrompt";
+		| "UserPrompt"
+		| "ToolUse";
 	userMessage?: string;
+	toolName?: string;
+	toolInput?: string;
 }

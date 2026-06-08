@@ -1,6 +1,6 @@
 export {
 	type ExternalWorktree,
 	type OpenableWorktreeAction,
-	type TrackedWorktree,
 	resolveOpenableWorktrees,
+	type TrackedWorktree,
 } from "./resolveOpenableWorktrees";

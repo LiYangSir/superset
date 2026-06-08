@@ -40,9 +40,7 @@ export function getPresetIcon(
 	return isDark ? iconSet.dark : iconSet.light;
 }
 
-export function getPresetIconSizeClass(
-	presetName: string,
-): string | undefined {
+export function getPresetIconSizeClass(presetName: string): string | undefined {
 	const normalizedName = presetName.toLowerCase().trim();
 	return PRESET_ICONS[normalizedName]?.sizeClass;
 }

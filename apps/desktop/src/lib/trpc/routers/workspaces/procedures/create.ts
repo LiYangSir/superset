@@ -744,9 +744,7 @@ export const createCreateProcedures = () => {
 				}
 
 				const branch =
-					input.branch ||
-					(await getCurrentBranch(input.worktreePath)) ||
-					"";
+					input.branch || (await getCurrentBranch(input.worktreePath)) || "";
 
 				const existingWorktree = localDb
 					.select()

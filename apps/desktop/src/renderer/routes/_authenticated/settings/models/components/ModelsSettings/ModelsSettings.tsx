@@ -12,9 +12,9 @@ import { useCallback, useEffect, useState } from "react";
 import { LuCheck, LuEye, LuEyeOff } from "react-icons/lu";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import {
-	type SettingItemId,
-	SETTING_ITEM_ID,
 	isItemVisible,
+	SETTING_ITEM_ID,
+	type SettingItemId,
 } from "../../../utils/settings-search";
 
 const MODEL_OPTIONS = [
@@ -79,13 +79,12 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 			},
 		});
 
-	const setModelMutation =
-		electronTrpc.settings.setAnthropicModel.useMutation({
-			onSuccess: () => {
-				utils.settings.getAnthropicModel.invalidate();
-				showSaved("model");
-			},
-		});
+	const setModelMutation = electronTrpc.settings.setAnthropicModel.useMutation({
+		onSuccess: () => {
+			utils.settings.getAnthropicModel.invalidate();
+			showSaved("model");
+		},
+	});
 
 	const handleSaveApiKey = useCallback(() => {
 		setApiKeyMutation.mutate({ key: apiKey });

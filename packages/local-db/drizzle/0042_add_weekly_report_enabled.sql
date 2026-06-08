@@ -1,0 +1,1 @@
+ALTER TABLE `projects` ADD `weekly_report_enabled` integer DEFAULT true;

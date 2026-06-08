@@ -4,8 +4,6 @@ export function getWorkspaceDisplayName(
 	projectName?: string | null,
 ): string {
 	const label =
-		workspaceType === "branch"
-			? "local"
-			: workspaceName || "Unnamed";
+		workspaceType === "branch" ? "local" : workspaceName || "Unnamed";
 	return [projectName, label].filter(Boolean).join(" - ");
 }

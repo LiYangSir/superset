@@ -258,7 +258,8 @@ export function ProjectHeader({
 							<span className="font-medium">{projectName}</span>
 							<span className="text-xs text-muted-foreground">
 								{workspaceCount} workspace{workspaceCount !== 1 ? "s" : ""}
-								{totalTabCount > 0 && ` · ${totalTabCount} tab${totalTabCount !== 1 ? "s" : ""}`}
+								{totalTabCount > 0 &&
+									` · ${totalTabCount} tab${totalTabCount !== 1 ? "s" : ""}`}
 							</span>
 						</TooltipContent>
 					</Tooltip>

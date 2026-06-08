@@ -53,7 +53,12 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { GoArrowUpRight, GoGitBranch, GoGlobe, GoIssueOpened } from "react-icons/go";
+import {
+	GoArrowUpRight,
+	GoGitBranch,
+	GoGlobe,
+	GoIssueOpened,
+} from "react-icons/go";
 import { HiCheck, HiChevronUpDown } from "react-icons/hi2";
 import { LuFolderGit, LuFolderOpen, LuGitPullRequest } from "react-icons/lu";
 import {
@@ -305,8 +310,7 @@ function BaseBranchPickerInline({
 							const count =
 								value === "all"
 									? branches.length
-									: branches.filter((b) => worktreeBranches.has(b.name))
-											.length;
+									: branches.filter((b) => worktreeBranches.has(b.name)).length;
 							return (
 								<button
 									key={value}
@@ -428,9 +432,7 @@ function BaseBranchPickerInline({
 												>
 													<GoArrowUpRight className="size-3.5 mr-1" />
 													Open
-													<span className="ml-1 text-[10px] opacity-60">
-														↵
-													</span>
+													<span className="ml-1 text-[10px] opacity-60">↵</span>
 												</Button>
 											)}
 											<Button
@@ -589,9 +591,7 @@ export function PromptGroup({
 						loading: "Opening worktree...",
 						success: "Worktree opened",
 						error: (err) =>
-							err instanceof Error
-								? err.message
-								: "Failed to open worktree",
+							err instanceof Error ? err.message : "Failed to open worktree",
 					},
 				);
 			} else {
@@ -605,9 +605,7 @@ export function PromptGroup({
 						loading: "Importing worktree...",
 						success: "Worktree imported",
 						error: (err) =>
-							err instanceof Error
-								? err.message
-								: "Failed to import worktree",
+							err instanceof Error ? err.message : "Failed to import worktree",
 					},
 				);
 			}

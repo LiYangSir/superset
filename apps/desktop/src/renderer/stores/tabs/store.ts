@@ -375,9 +375,7 @@ export const useTabsStore = create<TabsStore>()(
 				setTabPreset: (tabId, presetName, iconUrl) => {
 					set((state) => ({
 						tabs: state.tabs.map((t) =>
-							t.id === tabId
-								? { ...t, presetName, presetIconUrl: iconUrl }
-								: t,
+							t.id === tabId ? { ...t, presetName, presetIconUrl: iconUrl } : t,
 						),
 					}));
 				},

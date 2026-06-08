@@ -36,8 +36,11 @@ export function useAgentHookListener() {
 	const navigate = useNavigate();
 
 	const summarizeSession = electronTrpc.memory.summarizeSession.useMutation();
-	const generateTabTitle =
-		electronTrpc.tabAi.generateTabTitle.useMutation();
+	const generateTabTitle = electronTrpc.tabAi.generateTabTitle.useMutation();
+	const createActivity = electronTrpc.agentActivities.create.useMutation();
+	const completeActivity = electronTrpc.agentActivities.complete.useMutation();
+	const updateActivityMetadata =
+		electronTrpc.agentActivities.updateMetadata.useMutation();
 
 	// Ref avoids stale closure; parsed from URL since hook runs in _authenticated/layout
 	const currentWorkspaceIdRef = useRef<string | null>(null);
@@ -85,13 +88,30 @@ export function useAgentHookListener() {
 						"UserPrompt received, userMessage:",
 						userMessage ? `"${userMessage.slice(0, 80)}"` : "(empty)",
 					);
+
+					{
+						const pane = state.panes[paneId];
+						const tab = pane
+							? state.tabs.find((t) => t.id === pane.tabId)
+							: undefined;
+
+						createActivity.mutate({
+							workspaceId,
+							paneId,
+							tabId: tab?.id,
+							tabName: tab?.aiTitle || tab?.userTitle || tab?.name,
+							presetName: tab?.presetName,
+							modelName: pane?.chatMastra?.launchConfig?.metadata?.model,
+							userMessage,
+						});
+					}
+
 					if (userMessage) {
 						const pane = state.panes[paneId];
 						const tab = pane
 							? state.tabs.find((t) => t.id === pane.tabId)
 							: undefined;
-						const currentTitle =
-							tab?.aiTitle || tab?.name || undefined;
+						const currentTitle = tab?.aiTitle || tab?.name || undefined;
 
 						debugLog(
 							"agent-hooks",
@@ -102,42 +122,40 @@ export function useAgentHookListener() {
 							{ userMessage, currentTitle },
 							{
 								onSuccess: (result) => {
-									debugLog(
-										"agent-hooks",
-										"generateTabTitle result:",
-										result,
-									);
+									debugLog("agent-hooks", "generateTabTitle result:", result);
 									if (!result.title) return;
 									const latestState = useTabsStore.getState();
 									const latestPane = latestState.panes[paneId];
 									if (!latestPane) return;
-									latestState.setTabAiTitle(
-										latestPane.tabId,
-										result.title,
-									);
+									latestState.setTabAiTitle(latestPane.tabId, result.title);
 									if (result.description) {
-										latestState.setPaneDescription(
-											paneId,
-											result.description,
-										);
+										latestState.setPaneDescription(paneId, result.description);
 									}
 								},
 								onError: (err) => {
-									debugLog(
-										"agent-hooks",
-										"generateTabTitle error:",
-										err,
-									);
+									debugLog("agent-hooks", "generateTabTitle error:", err);
 								},
 							},
 						);
 					}
+				} else if (eventType === "ToolUse") {
+					const { toolName, toolInput } = lifecycleEvent;
+					if (toolName && toolInput) {
+						updateActivityMetadata.mutate({
+							paneId,
+							workspaceId,
+							toolName,
+							toolInput,
+						});
+					}
+					state.setPaneStatus(paneId, "working");
 				} else if (eventType === "Start") {
 					state.setPaneStatus(paneId, "working");
 				} else if (eventType === "PermissionRequest") {
 					state.setPaneStatus(paneId, "permission");
 				} else if (eventType === "SessionEnd") {
 					state.setPaneStatus(paneId, "idle");
+					completeActivity.mutate({ paneId, workspaceId });
 					if (workspaceId) {
 						summarizeSession.mutate({ workspaceId });
 					}
@@ -157,6 +175,7 @@ export function useAgentHookListener() {
 					});
 
 					state.setPaneStatus(paneId, isInActiveTab ? "idle" : "review");
+					completeActivity.mutate({ paneId, workspaceId });
 					if (workspaceId) {
 						summarizeSession.mutate({ workspaceId });
 					}
