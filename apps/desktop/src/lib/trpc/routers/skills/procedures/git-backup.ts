@@ -19,7 +19,7 @@ function getCentralRepoPath(): string {
 	} catch {
 		// fall through
 	}
-	return path.join(os.homedir(), ".skills-manager", "skills");
+	return path.join(os.homedir(), ".superset", "skills");
 }
 
 export function createGitBackupProcedures() {

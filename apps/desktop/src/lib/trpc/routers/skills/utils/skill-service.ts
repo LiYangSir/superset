@@ -14,7 +14,7 @@ import {
 
 const DEFAULT_CENTRAL_REPO = path.join(
 	os.homedir(),
-	".skills-manager",
+	".superset",
 	"skills",
 );
 

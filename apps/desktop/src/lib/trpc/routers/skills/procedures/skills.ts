@@ -23,7 +23,13 @@ import {
 	resolveRemoteRevision,
 	resolveSkillDir,
 } from "../utils/git-fetcher";
-import { installFromGitDir, installFromLocal } from "../utils/installer";
+import {
+	installFromGitDir,
+	installFromLocal,
+	parseSkillMetadata,
+	sanitizeName,
+} from "../utils/installer";
+import { hashDirectory } from "../utils/content-hash";
 import { removeTarget } from "../utils/sync-engine";
 import {
 	getAllAdapters,
@@ -170,7 +176,7 @@ function getCentralRepoPath(): string {
 	} catch {
 		// fall through
 	}
-	return path.join(os.homedir(), ".skills-manager", "skills");
+	return path.join(os.homedir(), ".superset", "skills");
 }
 
 function findExistingSkillByName(name: string) {
@@ -942,7 +948,100 @@ export function createSkillsProcedures() {
 			ensureSkillTablesExist();
 			const centralRepo = getCentralRepoPath();
 			await fs.mkdir(centralRepo, { recursive: true });
+			const resolvedCentralRepo = await fs.realpath(centralRepo);
 
+			// ── Phase 1: sync central repo ──────────────────────────
+			// Make DB match what's actually on disk in the central repo.
+			const existingSkills = localDb.select().from(skills).all();
+			const centralPathToSkill = new Map(
+				existingSkills.map((s) => [s.centralPath, s]),
+			);
+
+			let centralEntries: import("node:fs").Dirent[];
+			try {
+				centralEntries = await fs.readdir(centralRepo, {
+					withFileTypes: true,
+				});
+			} catch {
+				centralEntries = [];
+			}
+
+			const dirsOnDisk = new Set<string>();
+
+			for (const entry of centralEntries) {
+				if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+
+				const dirPath = path.join(centralRepo, entry.name);
+				dirsOnDisk.add(dirPath);
+
+				const tracked = centralPathToSkill.get(dirPath);
+				if (tracked) {
+					const currentHash = await hashDirectory(dirPath);
+					if (currentHash !== tracked.contentHash) {
+						const metadata = await parseSkillMetadata(dirPath);
+						localDb
+							.update(skills)
+							.set({
+								contentHash: currentHash,
+								description: metadata.description ?? tracked.description,
+								updatedAt: Date.now(),
+							})
+							.where(eq(skills.id, tracked.id))
+							.run();
+					}
+				} else {
+					const metadata = await parseSkillMetadata(dirPath);
+					const name = metadata.name
+						? sanitizeName(metadata.name)
+						: sanitizeName(entry.name);
+					const contentHash = await hashDirectory(dirPath);
+
+					const existingByName = findExistingSkillByName(name);
+					const now = Date.now();
+
+					if (existingByName) {
+						localDb
+							.update(skills)
+							.set({
+								description: metadata.description,
+								centralPath: dirPath,
+								contentHash,
+								updatedAt: now,
+							})
+							.where(eq(skills.id, existingByName.id))
+							.run();
+					} else {
+						localDb
+							.insert(skills)
+							.values({
+								id: uuidv4(),
+								name,
+								description: metadata.description,
+								sourceType: "local",
+								centralPath: dirPath,
+								contentHash,
+								updateStatus: "local_only",
+								createdAt: now,
+								updatedAt: now,
+							})
+							.run();
+					}
+				}
+			}
+
+			// Remove DB records whose central path no longer exists on disk
+			for (const skill of existingSkills) {
+				if (
+					skill.centralPath?.startsWith(centralRepo) &&
+					!dirsOnDisk.has(skill.centralPath)
+				) {
+					localDb.delete(skillTargets).where(eq(skillTargets.skillId, skill.id)).run();
+					localDb.delete(skills).where(eq(skills.id, skill.id)).run();
+				}
+			}
+
+			// ── Phase 2: scan tool adapter directories ──────────────
+			// Only pick up skills that are NOT symlinks into the central repo.
 			const settingsAccessor: SkillSettingsAccessor = {
 				getSetting(key: string) {
 					try {
@@ -961,15 +1060,13 @@ export function createSkillsProcedures() {
 			const adapters = getAllAdapters(settingsAccessor);
 			const installedAdapters = adapters.filter((a) => isToolInstalled(a));
 
-			const existingSkills = localDb.select().from(skills).all();
-			const existingPaths = new Set(
-				existingSkills.map((s) => s.centralPath).filter(Boolean),
-			);
 			const existingSourceRefs = new Set(
-				existingSkills.map((s) => s.sourceRef).filter(Boolean),
-			);
-			const centralPathToSkill = new Map(
-				existingSkills.map((s) => [s.centralPath, s]),
+				localDb
+					.select({ sourceRef: skills.sourceRef })
+					.from(skills)
+					.all()
+					.map((s) => s.sourceRef)
+					.filter(Boolean),
 			);
 			const existingTargetPaths = new Set(
 				localDb
@@ -1001,12 +1098,18 @@ export function createSkillsProcedures() {
 
 				for (const entry of entries) {
 					if (entry.name.startsWith(".")) continue;
-
-					const isDir =
-						entry.isDirectory() || entry.isSymbolicLink();
-					if (!isDir) continue;
+					if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
 
 					const skillDir = path.join(skillsDir, entry.name);
+
+					if (entry.isSymbolicLink()) {
+						try {
+							const realPath = await fs.realpath(skillDir);
+							if (realPath.startsWith(resolvedCentralRepo + path.sep)) continue;
+						} catch {
+							continue;
+						}
+					}
 
 					try {
 						const stat = await fs.stat(skillDir);
@@ -1016,44 +1119,6 @@ export function createSkillsProcedures() {
 					}
 
 					if (existingTargetPaths.has(skillDir)) continue;
-
-					const isSymlink = entry.isSymbolicLink();
-
-					if (isSymlink) {
-						let realPath: string;
-						try {
-							realPath = await fs.realpath(skillDir);
-						} catch {
-							continue;
-						}
-
-						const trackedSkill = centralPathToSkill.get(realPath);
-						if (trackedSkill) {
-							const now = Date.now();
-							localDb
-								.insert(skillTargets)
-								.values({
-									id: uuidv4(),
-									skillId: trackedSkill.id,
-									tool: adapter.key,
-									targetPath: skillDir,
-									mode: "symlink",
-									status: "synced",
-									syncedAt: now,
-									sourceHash: trackedSkill.contentHash,
-								})
-								.run();
-							existingTargetPaths.add(skillDir);
-							imported.push({
-								id: trackedSkill.id,
-								name: trackedSkill.name,
-								centralPath: trackedSkill.centralPath,
-								fromTool: adapter.displayName,
-							});
-							continue;
-						}
-					}
-
 					if (existingSourceRefs.has(skillDir)) continue;
 
 					try {
@@ -1113,7 +1178,6 @@ export function createSkillsProcedures() {
 							})
 							.run();
 
-						existingPaths.add(result.centralPath);
 						existingSourceRefs.add(skillDir);
 						existingTargetPaths.add(skillDir);
 
