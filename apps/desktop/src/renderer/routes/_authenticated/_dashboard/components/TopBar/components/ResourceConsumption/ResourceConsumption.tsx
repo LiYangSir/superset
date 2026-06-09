@@ -59,6 +59,10 @@ export function ResourceConsumption() {
 		},
 	);
 
+	const killSession = electronTrpc.terminal.kill.useMutation({
+		onSuccess: () => refetch(),
+	});
+
 	if (!enabled) return null;
 	const normalizedSnapshot = normalizeResourceMetricsSnapshot(snapshot);
 
@@ -205,6 +209,7 @@ export function ResourceConsumption() {
 							navigateToWorkspace={navigateToWorkspace}
 							navigateToPane={navigateToPane}
 							getPaneName={getPaneName}
+							onKillSession={(paneId) => killSession.mutate({ paneId })}
 						/>
 					)}
 

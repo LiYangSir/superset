@@ -1,5 +1,9 @@
 import { cn } from "@superset/ui/lib/utils";
-import { HiOutlineChevronDown, HiOutlineChevronRight } from "react-icons/hi2";
+import {
+	HiOutlineChevronDown,
+	HiOutlineChevronRight,
+	HiOutlineXMark,
+} from "react-icons/hi2";
 import type { WorkspaceMetrics } from "../../types";
 import { formatCpu, formatMemory } from "../../utils/formatters";
 import {
@@ -29,6 +33,7 @@ interface WorkspaceResourceSectionProps {
 	navigateToWorkspace: (workspaceId: string) => void;
 	navigateToPane: (workspaceId: string, paneId: string) => void;
 	getPaneName: (paneId: string) => string;
+	onKillSession: (paneId: string) => void;
 }
 
 function groupWorkspacesByProject(
@@ -78,6 +83,7 @@ export function WorkspaceResourceSection({
 	navigateToWorkspace,
 	navigateToPane,
 	getPaneName,
+	onKillSession,
 }: WorkspaceResourceSectionProps) {
 	const projectGroups = groupWorkspacesByProject(workspaces);
 	const projectTotals = getProjectTotals(projectGroups);
@@ -147,7 +153,7 @@ export function WorkspaceResourceSection({
 								>
 									<div
 										className={cn(
-											"flex items-center ml-2",
+											"group/workspace flex items-center ml-2",
 											workspaceClasses.rowClass,
 										)}
 									>
@@ -176,7 +182,7 @@ export function WorkspaceResourceSection({
 											type="button"
 											onClick={() => navigateToWorkspace(workspace.workspaceId)}
 											className={cn(
-												"flex-1 min-w-0 py-2 pr-3 flex items-center justify-between transition-colors",
+												"flex-1 min-w-0 py-2 flex items-center justify-between transition-colors",
 												workspace.sessions.length > 0 ? "pl-1" : "pl-3",
 												workspaceClasses.hoverClass,
 											)}
@@ -207,6 +213,21 @@ export function WorkspaceResourceSection({
 												</span>
 											</div>
 										</button>
+										{workspace.sessions.length > 0 && (
+											<button
+												type="button"
+												onClick={(e) => {
+													e.stopPropagation();
+													for (const s of workspace.sessions) {
+														onKillSession(s.paneId);
+													}
+												}}
+												className="shrink-0 p-1 mr-1.5 rounded opacity-0 group-hover/workspace:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all"
+												aria-label={`Kill all sessions in ${workspace.workspaceName}`}
+											>
+												<HiOutlineXMark className="h-3 w-3" />
+											</button>
+										)}
 									</div>
 
 									{!isCollapsed &&
@@ -221,44 +242,59 @@ export function WorkspaceResourceSection({
 											);
 
 											return (
-												<button
-													type="button"
+												<div
 													key={session.sessionId}
-													onClick={() =>
-														navigateToPane(
-															workspace.workspaceId,
-															session.paneId,
-														)
-													}
 													className={cn(
-														"w-full px-3 py-1.5 pl-10 flex items-center justify-between transition-colors",
+														"group/session flex items-center pl-10 transition-colors",
 														sessionClasses.rowClass,
 														sessionClasses.hoverClass,
 													)}
 												>
-													<span
-														className={cn(
-															"text-[11px] text-muted-foreground truncate min-w-0 mr-2",
-															sessionClasses.labelClass,
-														)}
+													<button
+														type="button"
+														onClick={() =>
+															navigateToPane(
+																workspace.workspaceId,
+																session.paneId,
+															)
+														}
+														className="flex-1 min-w-0 py-1.5 flex items-center justify-between"
 													>
-														{getPaneName(session.paneId)}
-													</span>
-													<div
-														className={cn(
-															METRIC_COLS,
-															"text-[11px]",
-															sessionClasses.metricClass,
-														)}
+														<span
+															className={cn(
+																"text-[11px] text-muted-foreground truncate min-w-0 mr-2",
+																sessionClasses.labelClass,
+															)}
+														>
+															{getPaneName(session.paneId)}
+														</span>
+														<div
+															className={cn(
+																METRIC_COLS,
+																"text-[11px]",
+																sessionClasses.metricClass,
+															)}
+														>
+															<span className={CPU_COL}>
+																{formatCpu(session.cpu)}
+															</span>
+															<span className={MEM_COL}>
+																{formatMemory(session.memory)}
+															</span>
+														</div>
+													</button>
+													<button
+														type="button"
+														onClick={(e) => {
+															e.stopPropagation();
+															onKillSession(session.paneId);
+														}}
+														className="shrink-0 p-1 mr-1.5 rounded opacity-0 group-hover/session:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all"
+														aria-label={`Kill session ${getPaneName(session.paneId)}`}
 													>
-														<span className={CPU_COL}>
-															{formatCpu(session.cpu)}
-														</span>
-														<span className={MEM_COL}>
-															{formatMemory(session.memory)}
-														</span>
-													</div>
-												</button>
+														<HiOutlineXMark className="h-3 w-3" />
+													</button>
+												</div>
 											);
 										})}
 								</div>
