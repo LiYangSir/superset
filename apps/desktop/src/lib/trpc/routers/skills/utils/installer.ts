@@ -89,29 +89,8 @@ export async function resolveSkillName(
 export async function uniqueSkillDest(
 	parent: string,
 	sanitizedName: string,
-	sourceHash?: string,
 ): Promise<string> {
-	const base = path.join(parent, sanitizedName);
-
-	try {
-		await fs.access(base);
-	} catch {
-		return base;
-	}
-
-	if (sourceHash) {
-		const existingHash = await hashDirectory(base);
-		if (existingHash === sourceHash) return base;
-	}
-
-	for (let i = 2; ; i++) {
-		const candidate = path.join(parent, `${sanitizedName}-${i}`);
-		try {
-			await fs.access(candidate);
-		} catch {
-			return candidate;
-		}
-	}
+	return path.join(parent, sanitizedName);
 }
 
 async function copySkillDir(

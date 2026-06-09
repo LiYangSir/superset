@@ -173,6 +173,14 @@ function getCentralRepoPath(): string {
 	return path.join(os.homedir(), ".skills-manager", "skills");
 }
 
+function findExistingSkillByName(name: string) {
+	return localDb
+		.select()
+		.from(skills)
+		.where(eq(skills.name, name))
+		.get();
+}
+
 export function createSkillsProcedures() {
 	return {
 		list: publicProcedure.query(() => {
@@ -274,6 +282,12 @@ export function createSkillsProcedures() {
 			.input(z.object({ id: z.string() }))
 			.mutation(async ({ input }) => {
 				ensureSkillTablesExist();
+				const skill = localDb
+					.select()
+					.from(skills)
+					.where(eq(skills.id, input.id))
+					.get();
+
 				const targets = localDb
 					.select()
 					.from(skillTargets)
@@ -288,6 +302,14 @@ export function createSkillsProcedures() {
 					}
 				}
 
+				if (skill?.centralPath) {
+					try {
+						await fs.rm(skill.centralPath, { recursive: true, force: true });
+					} catch {
+						// best effort
+					}
+				}
+
 				localDb.delete(skills).where(eq(skills.id, input.id)).run();
 				return { success: true as const };
 			}),
@@ -296,16 +318,30 @@ export function createSkillsProcedures() {
 			.input(z.object({ ids: z.array(z.string()) }))
 			.mutation(async ({ input }) => {
 				ensureSkillTablesExist();
-				for (const id of input.ids) {
+				const skillsToDelete = localDb
+					.select()
+					.from(skills)
+					.where(inArray(skills.id, input.ids))
+					.all();
+
+				for (const skill of skillsToDelete) {
 					const targets = localDb
 						.select()
 						.from(skillTargets)
-						.where(eq(skillTargets.skillId, id))
+						.where(eq(skillTargets.skillId, skill.id))
 						.all();
 
 					for (const target of targets) {
 						try {
 							await removeTarget(target.targetPath);
+						} catch {
+							// best effort
+						}
+					}
+
+					if (skill.centralPath) {
+						try {
+							await fs.rm(skill.centralPath, { recursive: true, force: true });
 						} catch {
 							// best effort
 						}
@@ -335,9 +371,25 @@ export function createSkillsProcedures() {
 						centralRepo,
 					);
 
-					const id = uuidv4();
+					const existing = findExistingSkillByName(result.name);
 					const now = Date.now();
 
+					if (existing) {
+						localDb
+							.update(skills)
+							.set({
+								description: result.description,
+								sourceRef: input.path,
+								centralPath: result.centralPath,
+								contentHash: result.contentHash,
+								updatedAt: now,
+							})
+							.where(eq(skills.id, existing.id))
+							.run();
+						return localDb.select().from(skills).where(eq(skills.id, existing.id)).get()!;
+					}
+
+					const id = uuidv4();
 					localDb
 						.insert(skills)
 						.values({
@@ -395,9 +447,31 @@ export function createSkillsProcedures() {
 						centralRepo,
 					);
 
-					const id = uuidv4();
+					const existing = findExistingSkillByName(result.name);
 					const now = Date.now();
 
+					if (existing) {
+						localDb
+							.update(skills)
+							.set({
+								description: result.description,
+								sourceType: "git",
+								sourceRef: input.url,
+								sourceRefResolved: source.cloneUrl,
+								sourceSubpath: source.subpath,
+								sourceBranch: source.branch,
+								sourceRevision: revision,
+								centralPath: result.centralPath,
+								contentHash: result.contentHash,
+								updateStatus: "up_to_date",
+								updatedAt: now,
+							})
+							.where(eq(skills.id, existing.id))
+							.run();
+						return localDb.select().from(skills).where(eq(skills.id, existing.id)).get()!;
+					}
+
+					const id = uuidv4();
 					localDb
 						.insert(skills)
 						.values({
@@ -466,9 +540,31 @@ export function createSkillsProcedures() {
 						centralRepo,
 					);
 
-					const id = uuidv4();
+					const existing = findExistingSkillByName(result.name);
 					const now = Date.now();
 
+					if (existing) {
+						localDb
+							.update(skills)
+							.set({
+								description: result.description,
+								sourceType: "skillssh",
+								sourceRef: gitUrl,
+								sourceRefResolved: gitSource.cloneUrl,
+								sourceSubpath: gitSource.subpath,
+								sourceBranch: gitSource.branch,
+								sourceRevision: revision,
+								centralPath: result.centralPath,
+								contentHash: result.contentHash,
+								updateStatus: "up_to_date",
+								updatedAt: now,
+							})
+							.where(eq(skills.id, existing.id))
+							.run();
+						return localDb.select().from(skills).where(eq(skills.id, existing.id)).get()!;
+					}
+
+					const id = uuidv4();
 					localDb
 						.insert(skills)
 						.values({
@@ -551,9 +647,32 @@ export function createSkillsProcedures() {
 							centralRepo,
 						);
 
-						const id = uuidv4();
+						const existing = findExistingSkillByName(result.name);
 						const now = Date.now();
 
+						if (existing) {
+							localDb
+								.update(skills)
+								.set({
+									description: result.description,
+									sourceType: "git",
+									sourceRef: input.tempDir,
+									centralPath: result.centralPath,
+									contentHash: result.contentHash,
+									updatedAt: now,
+								})
+								.where(eq(skills.id, existing.id))
+								.run();
+
+							installed.push({
+								id: existing.id,
+								name: result.name,
+								centralPath: result.centralPath,
+							});
+							continue;
+						}
+
+						const id = uuidv4();
 						localDb
 							.insert(skills)
 							.values({
@@ -765,9 +884,31 @@ export function createSkillsProcedures() {
 					try {
 						const result = await installFromLocal(skillDir, null, centralRepo);
 
-						const id = uuidv4();
+						const existing = findExistingSkillByName(result.name);
 						const now = Date.now();
 
+						if (existing) {
+							localDb
+								.update(skills)
+								.set({
+									description: result.description,
+									sourceRef: skillDir,
+									centralPath: result.centralPath,
+									contentHash: result.contentHash,
+									updatedAt: now,
+								})
+								.where(eq(skills.id, existing.id))
+								.run();
+
+							imported.push({
+								id: existing.id,
+								name: result.name,
+								centralPath: result.centralPath,
+							});
+							continue;
+						}
+
+						const id = uuidv4();
 						localDb
 							.insert(skills)
 							.values({
@@ -827,6 +968,16 @@ export function createSkillsProcedures() {
 			const existingSourceRefs = new Set(
 				existingSkills.map((s) => s.sourceRef).filter(Boolean),
 			);
+			const centralPathToSkill = new Map(
+				existingSkills.map((s) => [s.centralPath, s]),
+			);
+			const existingTargetPaths = new Set(
+				localDb
+					.select({ targetPath: skillTargets.targetPath })
+					.from(skillTargets)
+					.all()
+					.map((t) => t.targetPath),
+			);
 
 			const scannedDirs = new Set<string>();
 			const imported: Array<{
@@ -849,9 +1000,60 @@ export function createSkillsProcedures() {
 				}
 
 				for (const entry of entries) {
-					if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+					if (entry.name.startsWith(".")) continue;
+
+					const isDir =
+						entry.isDirectory() || entry.isSymbolicLink();
+					if (!isDir) continue;
 
 					const skillDir = path.join(skillsDir, entry.name);
+
+					try {
+						const stat = await fs.stat(skillDir);
+						if (!stat.isDirectory()) continue;
+					} catch {
+						continue;
+					}
+
+					if (existingTargetPaths.has(skillDir)) continue;
+
+					const isSymlink = entry.isSymbolicLink();
+
+					if (isSymlink) {
+						let realPath: string;
+						try {
+							realPath = await fs.realpath(skillDir);
+						} catch {
+							continue;
+						}
+
+						const trackedSkill = centralPathToSkill.get(realPath);
+						if (trackedSkill) {
+							const now = Date.now();
+							localDb
+								.insert(skillTargets)
+								.values({
+									id: uuidv4(),
+									skillId: trackedSkill.id,
+									tool: adapter.key,
+									targetPath: skillDir,
+									mode: "symlink",
+									status: "synced",
+									syncedAt: now,
+									sourceHash: trackedSkill.contentHash,
+								})
+								.run();
+							existingTargetPaths.add(skillDir);
+							imported.push({
+								id: trackedSkill.id,
+								name: trackedSkill.name,
+								centralPath: trackedSkill.centralPath,
+								fromTool: adapter.displayName,
+							});
+							continue;
+						}
+					}
+
 					if (existingSourceRefs.has(skillDir)) continue;
 
 					try {
@@ -861,32 +1063,47 @@ export function createSkillsProcedures() {
 							centralRepo,
 						);
 
-						if (existingPaths.has(result.centralPath)) continue;
-
-						const id = uuidv4();
+						const existing = findExistingSkillByName(result.name);
 						const now = Date.now();
+						let skillId: string;
 
-						localDb
-							.insert(skills)
-							.values({
-								id,
-								name: result.name,
-								description: result.description,
-								sourceType: "local",
-								sourceRef: skillDir,
-								centralPath: result.centralPath,
-								contentHash: result.contentHash,
-								updateStatus: "local_only",
-								createdAt: now,
-								updatedAt: now,
-							})
-							.run();
+						if (existing) {
+							skillId = existing.id;
+							localDb
+								.update(skills)
+								.set({
+									description: result.description,
+									sourceRef: skillDir,
+									centralPath: result.centralPath,
+									contentHash: result.contentHash,
+									updatedAt: now,
+								})
+								.where(eq(skills.id, existing.id))
+								.run();
+						} else {
+							skillId = uuidv4();
+							localDb
+								.insert(skills)
+								.values({
+									id: skillId,
+									name: result.name,
+									description: result.description,
+									sourceType: "local",
+									sourceRef: skillDir,
+									centralPath: result.centralPath,
+									contentHash: result.contentHash,
+									updateStatus: "local_only",
+									createdAt: now,
+									updatedAt: now,
+								})
+								.run();
+						}
 
 						localDb
 							.insert(skillTargets)
 							.values({
 								id: uuidv4(),
-								skillId: id,
+								skillId,
 								tool: adapter.key,
 								targetPath: skillDir,
 								mode: "symlink",
@@ -898,9 +1115,10 @@ export function createSkillsProcedures() {
 
 						existingPaths.add(result.centralPath);
 						existingSourceRefs.add(skillDir);
+						existingTargetPaths.add(skillDir);
 
 						imported.push({
-							id,
+							id: skillId,
 							name: result.name,
 							centralPath: result.centralPath,
 							fromTool: adapter.displayName,
