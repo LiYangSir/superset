@@ -8,7 +8,11 @@ import { localDb } from "main/lib/local-db";
 import { z } from "zod";
 import { publicProcedure, router } from "../..";
 import { readLatestClaudeSession } from "../memory/session-reader";
-import { getConfiguredAiCliAgent, runAiCliWithTempCwd } from "../utils/ai-cli";
+import {
+	getConfiguredAiCliAgent,
+	runAiCliWithTempCwd,
+	stripMarkdownFences,
+} from "../utils/ai-cli";
 import { getWorkspaceWithRelations } from "../workspaces/utils/db-helpers";
 
 export const createAgentActivitiesRouter = () => {
@@ -522,7 +526,7 @@ Generate the weekly report now. Use Chinese. Output markdown only, no extra comm
 						};
 					}
 
-					return { success: true, report: result.text };
+					return { success: true, report: stripMarkdownFences(result.text) };
 				} catch {
 					return { success: false, reason: "exception" as const, report: null };
 				}
@@ -562,13 +566,14 @@ Return ONLY the summary text, no JSON, no markdown.`,
 			return { success: false, reason: result.reason };
 		}
 
+		const summary = stripMarkdownFences(result.text);
 		localDb
 			.update(agentActivities)
-			.set({ summary: result.text, updatedAt: Date.now() })
+			.set({ summary, updatedAt: Date.now() })
 			.where(eq(agentActivities.id, activityId))
 			.run();
 
-		return { success: true, summary: result.text };
+		return { success: true, summary };
 	} catch (error) {
 		console.error("[agent-activities] summarize error:", error);
 		return { success: false, reason: "exception" as const };

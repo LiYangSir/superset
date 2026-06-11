@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { publicProcedure, router } from "..";
-import { getConfiguredAiCliAgent, runAiCliWithTempCwd } from "./utils/ai-cli";
+import {
+	getConfiguredAiCliAgent,
+	runAiCliWithTempCwd,
+	stripMarkdownFences,
+} from "./utils/ai-cli";
 
 export const createTabAiRouter = () => {
 	return router({
@@ -41,7 +45,7 @@ Respond ONLY with the JSON object, no markdown fences.`;
 						};
 					}
 
-					const parsed = JSON.parse(result.text);
+					const parsed = JSON.parse(stripMarkdownFences(result.text));
 					if (!parsed.should_update) {
 						return {
 							title: null,

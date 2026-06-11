@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { settings } from "@superset/local-db";
 import { localDb } from "main/lib/local-db";
@@ -53,10 +53,16 @@ export function normalizeAiCliAgent(value?: string | null): AiCliAgent {
 
 export function getConfiguredAiCliAgent(): AiCliAgent {
 	const envAgent = process.env.SUPERSET_AI_CLI_AGENT;
-	if (envAgent) return normalizeAiCliAgent(envAgent);
+	if (envAgent) {
+		const agent = normalizeAiCliAgent(envAgent);
+		console.log(`[ai-cli] agent from env SUPERSET_AI_CLI_AGENT="${envAgent}" → "${agent}"`);
+		return agent;
+	}
 
 	const settingsRow = localDb.select().from(settings).get();
-	return normalizeAiCliAgent(settingsRow?.anthropicModel);
+	const agent = normalizeAiCliAgent(settingsRow?.anthropicModel);
+	console.log(`[ai-cli] agent from db anthropicModel="${settingsRow?.anthropicModel}" → "${agent}"`);
+	return agent;
 }
 
 function buildCommands(agent: AiCliAgent, prompt: string): CliCommand[] {
@@ -127,6 +133,12 @@ function runProcess(
 	},
 ): Promise<RunProcessResult> {
 	return new Promise((resolve, reject) => {
+		console.log(`[ai-cli] spawn: ${command} ${args.join(" ")}`);
+		console.log(`[ai-cli]   cwd: ${options.cwd ?? "(none)"}`);
+		console.log(`[ai-cli]   stdin: ${options.stdin ? `${options.stdin.length} chars` : "(none)"}`);
+		console.log(`[ai-cli]   timeout: ${options.timeoutMs}ms`);
+		console.log(`[ai-cli]   PATH: ${options.env.PATH?.split(":").slice(0, 5).join(":")}...`);
+
 		const child = spawn(command, args, {
 			cwd: options.cwd,
 			env: options.env,
@@ -162,6 +174,10 @@ function runProcess(
 
 		child.on("close", (exitCode) => {
 			clearTimeout(timeout);
+			console.log(`[ai-cli] ${command} closed: exitCode=${exitCode} timedOut=${timedOut} stdout=${stdout.length}chars stderr=${stderr.length}chars`);
+			if (stderr) {
+				console.log(`[ai-cli]   stderr preview: ${stderr.slice(0, 300)}`);
+			}
 			if (timedOut) {
 				reject(new Error("AI_CLI_TIMEOUT"));
 				return;
@@ -179,6 +195,10 @@ function runProcess(
 
 function cleanText(text: string): string {
 	return stripAnsi(text).trim();
+}
+
+export function stripMarkdownFences(text: string): string {
+	return text.replace(/^```[\w]*\n?/, "").replace(/\n?```\s*$/, "").trim();
 }
 
 async function readOutputText(command: CliCommand, stdout: string) {
@@ -206,7 +226,11 @@ export async function runAiCli(
 	const env = await getProcessEnvWithShellPath();
 	let lastFailure: AiCliFailureReason = "cli_error";
 
-	for (const command of buildCommands(agent, prompt)) {
+	const commands = buildCommands(agent, prompt);
+	console.log(`[ai-cli] runAiCli: agent="${agent}" cwd="${options?.cwd}" timeoutMs=${timeoutMs} commands=${commands.length}`);
+	console.log(`[ai-cli]   prompt preview: ${prompt.slice(0, 200)}...`);
+
+	for (const command of commands) {
 		try {
 			const result = await runProcess(command.command, command.args, {
 				cwd: options?.cwd,
@@ -225,14 +249,18 @@ export async function runAiCli(
 			}
 
 			const text = await readOutputText(command, result.stdout);
+			console.log(`[ai-cli] ${command.command} output: ${text.length} chars, outputFile=${command.outputFile ?? "(none)"}`);
 			if (!text) {
+				console.warn(`[ai-cli] ${command.command} returned empty response`);
 				lastFailure = "empty_response";
 				continue;
 			}
 
+			console.log(`[ai-cli] ✓ success via ${command.command}, response: ${text.slice(0, 200)}...`);
 			return { ok: true, text, agent };
 		} catch (error) {
 			if (error instanceof Error && error.message === "AI_CLI_TIMEOUT") {
+				console.error(`[ai-cli] ${command.command} timed out after ${timeoutMs}ms`);
 				lastFailure = "timeout";
 				break;
 			}
@@ -241,6 +269,7 @@ export async function runAiCli(
 				"code" in error &&
 				error.code === "ENOENT"
 			) {
+				console.warn(`[ai-cli] ${command.command} not found (ENOENT)`);
 				lastFailure = "cli_not_found";
 				continue;
 			}
@@ -253,6 +282,7 @@ export async function runAiCli(
 		}
 	}
 
+	console.error(`[ai-cli] all commands exhausted, final failure: ${lastFailure}`);
 	return { ok: false, reason: lastFailure, agent };
 }
 
@@ -261,9 +291,35 @@ export async function runAiCliWithTempCwd(
 	options?: Omit<RunAiCliOptions, "cwd">,
 ): Promise<AiCliResult> {
 	const tempDir = await mkdtemp(path.join(tmpdir(), "superset-ai-cli-"));
+	console.log(`[ai-cli] runAiCliWithTempCwd: tempDir="${tempDir}" agent="${options?.agent}"`);
 	try {
-		return await runAiCli(prompt, { ...options, cwd: tempDir });
+		const result = await runAiCli(prompt, { ...options, cwd: tempDir });
+		console.log(`[ai-cli] runAiCliWithTempCwd result: ok=${result.ok}${result.ok ? "" : ` reason=${result.reason}`}`);
+		return result;
 	} finally {
 		await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+		cleanupStaleCliProjects().catch(() => {});
 	}
+}
+
+const STALE_PROJECT_PREFIX = "-private-tmp-superset-ai-cli-";
+
+export async function cleanupStaleCliProjects(): Promise<number> {
+	const projectsDir = path.join(homedir(), ".claude", "projects");
+	let removed = 0;
+	try {
+		const entries = await readdir(projectsDir);
+		const stale = entries.filter((e) => e.startsWith(STALE_PROJECT_PREFIX));
+		for (const entry of stale) {
+			await rm(path.join(projectsDir, entry), {
+				recursive: true,
+				force: true,
+			}).catch(() => {});
+			removed++;
+		}
+		if (removed > 0) {
+			console.log(`[ai-cli] cleaned up ${removed} stale project directories`);
+		}
+	} catch {}
+	return removed;
 }

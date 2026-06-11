@@ -219,73 +219,76 @@ protocol.registerSchemesAsPrivileged([
 
 app.requestSingleInstanceLock();
 
-{
-	// Windows/Linux: protocol URL arrives as argv on the second instance
-	app.on("second-instance", async (_event, argv) => {
-		focusMainWindow();
-		const url = findDeepLinkInArgv(argv);
-		if (url) {
-			await processDeepLink(url);
-		}
-	});
+// Windows/Linux: protocol URL arrives as argv on the second instance
+app.on("second-instance", async (_event, argv) => {
+	focusMainWindow();
+	const url = findDeepLinkInArgv(argv);
+	if (url) {
+		await processDeepLink(url);
+	}
+});
 
-	(async () => {
-		await app.whenReady();
-		registerWithMacOSNotificationCenter();
-		requestAppleEventsAccess();
+(async () => {
+	await app.whenReady();
+	registerWithMacOSNotificationCenter();
+	requestAppleEventsAccess();
 
-		// Must register on both default session and the app's custom partition
-		const iconProtocolHandler = (request: Request) => {
-			const url = new URL(request.url);
-			const id = url.pathname.replace(/^\//, "");
+	// Must register on both default session and the app's custom partition
+	const iconProtocolHandler = (request: Request) => {
+		const url = new URL(request.url);
+		const id = url.pathname.replace(/^\//, "");
 
-			let iconPath: string | null = null;
-			if (url.hostname === "presets") {
-				iconPath = getPresetIconPath(id);
-			} else {
-				iconPath = getProjectIconPath(id);
-			}
-
-			if (!iconPath) {
-				return new Response("Not found", { status: 404 });
-			}
-			return net.fetch(pathToFileURL(iconPath).toString());
-		};
-		protocol.handle("superset-icon", iconProtocolHandler);
-		session
-			.fromPartition("persist:superset")
-			.protocol.handle("superset-icon", iconProtocolHandler);
-
-		ensureProjectIconsDir();
-		ensurePresetIconsDir();
-		setWorkspaceDockIcon();
-		await initAppState();
-
-		await loadWebviewBrowserExtension();
-
-		// Must happen before renderer restore runs
-		await reconcileDaemonSessions();
-		prewarmTerminalRuntime();
-
-		try {
-			setupAgentHooks();
-		} catch (error) {
-			console.error("[main] Failed to set up agent hooks:", error);
+		let iconPath: string | null = null;
+		if (url.hostname === "presets") {
+			iconPath = getPresetIconPath(id);
+		} else {
+			iconPath = getProjectIconPath(id);
 		}
 
-		await makeAppSetup(() => MainWindow());
-		initTray();
-
-		// Process any deep links from cold start
-		const coldStartUrl = findDeepLinkInArgv(process.argv);
-		if (coldStartUrl) {
-			await processDeepLink(coldStartUrl);
+		if (!iconPath) {
+			return new Response("Not found", { status: 404 });
 		}
-		if (pendingDeepLinkUrl) {
-			await processDeepLink(pendingDeepLinkUrl);
-			pendingDeepLinkUrl = null;
-		}
+		return net.fetch(pathToFileURL(iconPath).toString());
+	};
+	protocol.handle("superset-icon", iconProtocolHandler);
+	session
+		.fromPartition("persist:superset")
+		.protocol.handle("superset-icon", iconProtocolHandler);
 
-		appReady = true;
-	})();
-}
+	ensureProjectIconsDir();
+	ensurePresetIconsDir();
+	setWorkspaceDockIcon();
+	await initAppState();
+
+	await loadWebviewBrowserExtension();
+
+	// Must happen before renderer restore runs
+	await reconcileDaemonSessions();
+	prewarmTerminalRuntime();
+
+	try {
+		setupAgentHooks();
+	} catch (error) {
+		console.error("[main] Failed to set up agent hooks:", error);
+	}
+
+	// Clean up stale project dirs left by background AI CLI invocations
+	import("lib/trpc/routers/utils/ai-cli")
+		.then((m) => m.cleanupStaleCliProjects())
+		.catch(() => {});
+
+	await makeAppSetup(() => MainWindow());
+	initTray();
+
+	// Process any deep links from cold start
+	const coldStartUrl = findDeepLinkInArgv(process.argv);
+	if (coldStartUrl) {
+		await processDeepLink(coldStartUrl);
+	}
+	if (pendingDeepLinkUrl) {
+		await processDeepLink(pendingDeepLinkUrl);
+		pendingDeepLinkUrl = null;
+	}
+
+	appReady = true;
+})();
