@@ -567,15 +567,16 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	{
 		id: SETTING_ITEM_ID.MODELS_ANTHROPIC,
 		section: "models",
-		title: "Anthropic Model Auth",
-		description: "Connect Anthropic for workspace naming and small model tasks",
+		title: "AI CLI Agent",
+		description:
+			"Choose the CLI agent for workspace naming and small model tasks",
 		keywords: [
 			"models",
-			"anthropic",
+			"cli",
+			"agent",
 			"claude",
-			"oauth",
-			"api key",
-			"auth",
+			"codex",
+			"qoder",
 			"workspace naming",
 			"auto name",
 		],

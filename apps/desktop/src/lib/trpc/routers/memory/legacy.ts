@@ -5,12 +5,12 @@ import {
 	memorySkills,
 	memoryTraces,
 	memoryWorldModels,
-	settings,
 } from "@superset/local-db";
 import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { localDb } from "main/lib/local-db";
 import { z } from "zod";
 import { publicProcedure, router } from "../..";
+import { getConfiguredAiCliAgent, runAiCliWithTempCwd } from "../utils/ai-cli";
 import { getWorkspaceWithRelations } from "../workspaces/utils/db-helpers";
 import { runPipeline } from "./pipeline";
 import {
@@ -332,16 +332,6 @@ export const createLegacyMemoryRouter = () => {
 					projectId: input.projectId,
 				});
 
-				const settingsRow = localDb.select().from(settings).get();
-				const apiKey =
-					settingsRow?.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
-				if (!apiKey) {
-					return { success: false, reason: "no_api_key" as const };
-				}
-				const baseUrl =
-					settingsRow?.anthropicBaseUrl || "https://api.anthropic.com";
-				const model = settingsRow?.anthropicModel || "deepseek-v4-flash";
-
 				const existingMemories = localDb
 					.select()
 					.from(memories)
@@ -396,21 +386,8 @@ export const createLegacyMemoryRouter = () => {
 				}
 
 				try {
-					const response = await fetch(`${baseUrl}/v1/messages`, {
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							"x-api-key": apiKey,
-							"anthropic-version": "2023-06-01",
-							"User-Agent": "claude-cli/2.1.44 (external, sdk-cli)",
-						},
-						body: JSON.stringify({
-							model,
-							max_tokens: 4096,
-							messages: [
-								{
-									role: "user",
-									content: `You reorganize a memory system. Below are all existing memories. Your job: consolidate them into ONE entry per category per scope. Merge duplicates, remove outdated info, and produce clean bullet-point lists.
+					const result = await runAiCliWithTempCwd(
+						`You reorganize a memory system. Below are all existing memories. Your job: consolidate them into ONE entry per category per scope. Merge duplicates, remove outdated info, and produce clean bullet-point lists.
 
 There are two scopes:
 - "global": User profile — coding preferences, communication style, workflow habits, tools, expertise, role, general preferences.
@@ -430,31 +407,18 @@ Rules:
 - Remove clearly outdated or contradicted observations
 - Preserve all unique, valuable information
 - Do NOT wrap the JSON in markdown code fences`,
-								},
-							],
-						}),
-					});
+						{
+							agent: getConfiguredAiCliAgent(),
+							timeoutMs: 120_000,
+						},
+					);
 
-					if (!response.ok) {
-						const errBody = await response.text().catch(() => "");
-						console.log(
-							"[memory] consolidate API error:",
-							response.status,
-							errBody.slice(0, 200),
-						);
-						return { success: false, reason: "api_error" as const };
+					if (!result.ok) {
+						console.log("[memory] consolidate CLI error:", result.reason);
+						return { success: false, reason: result.reason };
 					}
 
-					const data = (await response.json()) as {
-						content: Array<{ type: string; text?: string }>;
-					};
-					const text = data.content
-						?.find((c) => c.type === "text")
-						?.text?.trim();
-
-					if (!text) {
-						return { success: false, reason: "empty_response" as const };
-					}
+					const text = result.text;
 
 					const jsonMatch = text.match(/\[[\s\S]*\]/);
 					if (!jsonMatch) {
@@ -547,17 +511,6 @@ Rules:
 					projectId: input.projectId,
 				});
 
-				const settingsRow = localDb.select().from(settings).get();
-				const apiKey =
-					settingsRow?.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
-				if (!apiKey) {
-					console.log("[memory] No API key configured, skipping");
-					return { success: false, reason: "no_api_key" as const };
-				}
-				const baseUrl =
-					settingsRow?.anthropicBaseUrl || "https://api.anthropic.com";
-				const model = settingsRow?.anthropicModel || "deepseek-v4-flash";
-
 				let projectId = input.projectId;
 				let projectPath = input.projectPath;
 
@@ -585,8 +538,8 @@ Rules:
 				console.log(
 					"[memory] Transcript found, length:",
 					transcript.length,
-					"- calling API with model:",
-					model,
+					"- calling CLI agent:",
+					getConfiguredAiCliAgent(),
 				);
 
 				const existingMemories = localDb
@@ -643,21 +596,8 @@ Rules:
 				}
 
 				try {
-					const response = await fetch(`${baseUrl}/v1/messages`, {
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							"x-api-key": apiKey,
-							"anthropic-version": "2023-06-01",
-							"User-Agent": "claude-cli/2.1.44 (external, sdk-cli)",
-						},
-						body: JSON.stringify({
-							model,
-							max_tokens: 4096,
-							messages: [
-								{
-									role: "user",
-									content: `You reorganize a memory system. You receive all existing memories and a new session transcript. Your job: produce a COMPLETE, reorganized set of memories. Each category should contain ONE consolidated bullet-point list. Merge duplicates, remove outdated info, and integrate any new observations from the transcript.
+					const result = await runAiCliWithTempCwd(
+						`You reorganize a memory system. You receive all existing memories and a new session transcript. Your job: produce a COMPLETE, reorganized set of memories. Each category should contain ONE consolidated bullet-point list. Merge duplicates, remove outdated info, and integrate any new observations from the transcript.
 
 There are two scopes:
 - "global": User profile — coding preferences, communication style, workflow habits, tools, expertise, role, general preferences. These travel across ALL projects.
@@ -688,31 +628,18 @@ Rules:
 - If nothing noteworthy from the transcript, return existing memories reorganized (still consolidate duplicates)
 - Return [] only if there truly are no memories worth keeping
 - Do NOT wrap the JSON in markdown code fences`,
-								},
-							],
-						}),
-					});
+						{
+							agent: getConfiguredAiCliAgent(),
+							timeoutMs: 120_000,
+						},
+					);
 
-					if (!response.ok) {
-						const errBody = await response.text().catch(() => "");
-						console.log(
-							"[memory] API error:",
-							response.status,
-							errBody.slice(0, 200),
-						);
-						return { success: false, reason: "api_error" as const };
+					if (!result.ok) {
+						console.log("[memory] CLI error:", result.reason);
+						return { success: false, reason: result.reason };
 					}
 
-					const data = (await response.json()) as {
-						content: Array<{ type: string; text?: string }>;
-					};
-					const text = data.content
-						?.find((c) => c.type === "text")
-						?.text?.trim();
-
-					if (!text) {
-						return { success: false, reason: "empty_response" as const };
-					}
+					const text = result.text;
 
 					const jsonMatch = text.match(/\[[\s\S]*\]/);
 					if (!jsonMatch) {

@@ -5,6 +5,7 @@ export const AGENT_TYPES = [
 	"opencode",
 	"copilot",
 	"cursor-agent",
+	"qoder",
 ] as const;
 
 export type AgentType = (typeof AGENT_TYPES)[number];
@@ -16,6 +17,7 @@ export const AGENT_LABELS: Record<AgentType, string> = {
 	opencode: "OpenCode",
 	copilot: "Copilot",
 	"cursor-agent": "Cursor Agent",
+	qoder: "Qoder",
 };
 
 export const AGENT_PRESET_COMMANDS: Record<AgentType, string[]> = {
@@ -27,6 +29,7 @@ export const AGENT_PRESET_COMMANDS: Record<AgentType, string[]> = {
 	opencode: ["opencode"],
 	copilot: ["copilot --allow-all"],
 	"cursor-agent": ["cursor-agent"],
+	qoder: ["qodercli --yolo"],
 };
 
 export const AGENT_PRESET_DESCRIPTIONS: Record<AgentType, string> = {
@@ -36,6 +39,7 @@ export const AGENT_PRESET_DESCRIPTIONS: Record<AgentType, string> = {
 	opencode: "OpenCode: Open-source AI coding agent",
 	copilot: "Danger mode: All permissions auto-approved",
 	"cursor-agent": "Cursor AI agent for terminal-based coding assistance",
+	qoder: "Danger mode: All permissions auto-approved",
 };
 
 export interface TaskInput {
@@ -104,6 +108,7 @@ const AGENT_FILE_COMMANDS: Record<AgentType, (filePath: string) => string> = {
 	opencode: (filePath) => `opencode --prompt "$(cat '${filePath}')"`,
 	copilot: (filePath) => `copilot -i "$(cat '${filePath}')" --yolo`,
 	"cursor-agent": (filePath) => `cursor-agent --yolo "$(cat '${filePath}')"`,
+	qoder: (filePath) => `qodercli --yolo -p "$(cat '${filePath}')"`,
 };
 
 export function buildAgentFileCommand({
@@ -138,6 +143,8 @@ const AGENT_COMMANDS: Record<
 		buildHeredoc(prompt, delimiter, "copilot -i", "--yolo"),
 	"cursor-agent": (prompt, delimiter) =>
 		buildHeredoc(prompt, delimiter, "cursor-agent --yolo"),
+	qoder: (prompt, delimiter) =>
+		buildHeredoc(prompt, delimiter, "qodercli --yolo -p"),
 };
 
 export function buildAgentPromptCommand({

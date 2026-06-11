@@ -4,12 +4,12 @@ import {
 	memorySkills,
 	memoryTraces,
 	memoryWorldModels,
-	settings,
 } from "@superset/local-db";
 import { and, desc, eq, gte, or, sql } from "drizzle-orm";
 import { localDb } from "main/lib/local-db";
 import { z } from "zod";
 import { publicProcedure, router } from "../..";
+import { getConfiguredAiCliAgent, runAiCliWithTempCwd } from "../utils/ai-cli";
 import { computeEmbedding } from "./embedding";
 import { syncCognitiveMemoryToFiles } from "./sync";
 
@@ -17,56 +17,21 @@ import { syncCognitiveMemoryToFiles } from "./sync";
 // LLM helpers
 // ---------------------------------------------------------------------------
 
-function getApiConfig() {
-	const settingsRow = localDb.select().from(settings).get();
-	const apiKey = settingsRow?.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
-	const baseUrl = settingsRow?.anthropicBaseUrl || "https://api.anthropic.com";
-	const model = settingsRow?.anthropicModel || "deepseek-v4-flash";
-	return { apiKey, baseUrl, model };
-}
-
 async function callLlm(
-	baseUrl: string,
-	apiKey: string,
-	model: string,
 	prompt: string,
 	timeoutMs = 30000,
 ): Promise<string | null> {
-	const controller = new AbortController();
-	const timeout = setTimeout(() => controller.abort(), timeoutMs);
+	const result = await runAiCliWithTempCwd(prompt, {
+		agent: getConfiguredAiCliAgent(),
+		timeoutMs,
+	});
 
-	try {
-		const response = await fetch(`${baseUrl}/v1/messages`, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				"x-api-key": apiKey,
-				"anthropic-version": "2023-06-01",
-				"User-Agent": "claude-cli/2.1.44 (external, sdk-cli)",
-			},
-			body: JSON.stringify({
-				model,
-				max_tokens: 4096,
-				messages: [{ role: "user", content: prompt }],
-			}),
-			signal: controller.signal,
-		});
-
-		if (!response.ok) {
-			console.error("[pipeline] LLM error:", response.status);
-			return null;
-		}
-
-		const data = (await response.json()) as {
-			content: Array<{ type: string; text?: string }>;
-		};
-		return data.content?.find((c) => c.type === "text")?.text?.trim() ?? null;
-	} catch (e) {
-		console.error("[pipeline] LLM call failed:", e);
+	if (!result.ok) {
+		console.error("[pipeline] LLM CLI failed:", result.reason);
 		return null;
-	} finally {
-		clearTimeout(timeout);
 	}
+
+	return result.text;
 }
 
 function parseJsonFromLlm<T>(text: string | null): T | null {
@@ -136,15 +101,9 @@ async function scoreEpisode(episodeId: string) {
 		.all();
 	if (traces.length === 0) return;
 
-	const { apiKey, baseUrl, model } = getApiConfig();
-	if (!apiKey) return;
-
 	const traceSummary = formatTraceSummary(traces, 200);
 
 	const result = await callLlm(
-		baseUrl,
-		apiKey,
-		model,
 		`Score this coding agent session on three axes. Each score is a float between -1.0 and 1.0.
 
 Title: ${episode.title}
@@ -213,21 +172,6 @@ async function scoreAlphas(episodeId: string) {
 		.all();
 	if (traces.length === 0) return;
 
-	const { apiKey, baseUrl, model } = getApiConfig();
-	if (!apiKey) {
-		for (const trace of traces) {
-			const hasError =
-				trace.errorSignatures && (trace.errorSignatures as string[]).length > 0;
-			const alpha = hasError ? 0.2 : 0.5;
-			localDb
-				.update(memoryTraces)
-				.set({ alpha })
-				.where(eq(memoryTraces.id, trace.id))
-				.run();
-		}
-		return;
-	}
-
 	const traceSummary = traces
 		.map((t, i) => {
 			const parts = [`Step ${i + 1}:`];
@@ -242,9 +186,6 @@ async function scoreAlphas(episodeId: string) {
 		.join("\n");
 
 	const result = await callLlm(
-		baseUrl,
-		apiKey,
-		model,
 		`For each step in this agent session, assign a "reflection weight" (alpha) between 0.0 and 1.0.
 
 Alpha measures how much this step contributed a KEY INSIGHT vs was just blind trial-and-error:
@@ -371,9 +312,6 @@ async function inducePolicies(episodeId: string) {
 		return;
 	}
 
-	const { apiKey, baseUrl, model } = getApiConfig();
-	if (!apiKey) return;
-
 	const existingPolicies = localDb
 		.select()
 		.from(memoryPolicies)
@@ -412,9 +350,6 @@ async function inducePolicies(episodeId: string) {
 			: "";
 
 	const result = await callLlm(
-		baseUrl,
-		apiKey,
-		model,
 		`Extract reusable policies from these high-value interaction traces of a coding agent session.
 
 Episode: ${episode.title}
@@ -572,9 +507,6 @@ async function abstractWorldModels(episodeId: string) {
 		return;
 	}
 
-	const { apiKey, baseUrl, model } = getApiConfig();
-	if (!apiKey) return;
-
 	const existingModels = localDb
 		.select()
 		.from(memoryWorldModels)
@@ -604,9 +536,6 @@ async function abstractWorldModels(episodeId: string) {
 			: "";
 
 	const result = await callLlm(
-		baseUrl,
-		apiKey,
-		model,
 		`From these validated coding agent policies, extract stable environmental knowledge.
 
 Active policies:
@@ -723,9 +652,6 @@ async function crystallizeSkills(episodeId: string) {
 		existingSkills.map((s) => s.name.toLowerCase()),
 	);
 
-	const { apiKey, baseUrl, model } = getApiConfig();
-	if (!apiKey) return;
-
 	const policySummary = eligiblePolicies
 		.map(
 			(p) =>
@@ -761,9 +687,6 @@ async function crystallizeSkills(episodeId: string) {
 			: "";
 
 	const result = await callLlm(
-		baseUrl,
-		apiKey,
-		model,
 		`From these well-validated policies and environmental context, crystallize callable skills.
 
 A skill is a MATURE, REUSABLE capability that an agent can invoke as a complete procedure.

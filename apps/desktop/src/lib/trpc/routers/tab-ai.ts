@@ -1,7 +1,6 @@
-import { settings } from "@superset/local-db";
-import { localDb } from "main/lib/local-db";
 import { z } from "zod";
 import { publicProcedure, router } from "..";
+import { getConfiguredAiCliAgent, runAiCliWithTempCwd } from "./utils/ai-cli";
 
 export const createTabAiRouter = () => {
 	return router({
@@ -13,31 +12,6 @@ export const createTabAiRouter = () => {
 				}),
 			)
 			.mutation(async ({ input }) => {
-				let apiKey: string | null = null;
-				let baseUrl = "https://api.anthropic.com";
-				let model = "deepseek-v4-flash";
-
-				try {
-					// biome-ignore lint/suspicious/noExplicitAny: drizzle type inference
-					const settingsRow = (localDb.select().from(settings as any).get() ??
-						{}) as Record<string, unknown>;
-					apiKey =
-						(settingsRow.anthropicApiKey as string) ||
-						process.env.ANTHROPIC_API_KEY ||
-						null;
-					baseUrl =
-						(settingsRow.anthropicBaseUrl as string) ||
-						"https://api.anthropic.com";
-					model =
-						(settingsRow.anthropicModel as string) || "deepseek-v4-flash";
-				} catch {
-					apiKey = process.env.ANTHROPIC_API_KEY || null;
-				}
-
-				if (!apiKey) {
-					return { title: null, description: null, reason: "no_api_key" };
-				}
-
 				const systemPrompt = `You generate concise tab titles for a code editor. Given a user message sent to an AI coding agent, return a JSON object with:
 - "title": A concise tab title (max 20 characters) summarizing the task. Use the language of the user message.
 - "description": A more detailed one-line description (max 80 characters) of the current task. Use the language of the user message.
@@ -51,37 +25,23 @@ Respond ONLY with the JSON object, no markdown fences.`;
 					: `User message: ${input.userMessage}`;
 
 				try {
-					const response = await fetch(`${baseUrl}/v1/messages`, {
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							"x-api-key": apiKey,
-							"anthropic-version": "2023-06-01",
-							"User-Agent": "claude-cli/2.1.44 (external, sdk-cli)",
+					const result = await runAiCliWithTempCwd(
+						`${systemPrompt}\n\n${userContent}`,
+						{
+							agent: getConfiguredAiCliAgent(),
+							timeoutMs: 60_000,
 						},
-						body: JSON.stringify({
-							model,
-							max_tokens: 256,
-							system: systemPrompt,
-							messages: [{ role: "user", content: userContent }],
-						}),
-					});
-
-					if (!response.ok) {
-						return { title: null, description: null, reason: "api_error" };
-					}
-
-					const data = await response.json();
-					// biome-ignore lint/suspicious/noExplicitAny: API response parsing
-					const textBlock = data?.content?.find(
-						(c: any) => c.type === "text",
 					);
-					const text = textBlock?.text || null;
-					if (!text) {
-						return { title: null, description: null, reason: "empty_response" };
+
+					if (!result.ok) {
+						return {
+							title: null,
+							description: null,
+							reason: result.reason,
+						};
 					}
 
-					const parsed = JSON.parse(text);
+					const parsed = JSON.parse(result.text);
 					if (!parsed.should_update) {
 						return {
 							title: null,

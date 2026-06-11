@@ -38,6 +38,7 @@ import {
 } from "shared/ringtones";
 import { z } from "zod";
 import { publicProcedure, router } from "../..";
+import { AI_CLI_AGENTS, normalizeAiCliAgent } from "../utils/ai-cli";
 import { getGitAuthorName, getGitHubUsername } from "../workspaces/utils/git";
 import {
 	setFontSettingsSchema,
@@ -99,6 +100,7 @@ const DEFAULT_PRESET_AGENTS = [
 	"copilot",
 	"opencode",
 	"gemini",
+	"qoder",
 ] as const;
 
 const DEFAULT_PRESETS: Omit<TerminalPreset, "id">[] = DEFAULT_PRESET_AGENTS.map(
@@ -757,6 +759,25 @@ export const createSettingsRouter = () => {
 		setTelemetryEnabled: publicProcedure
 			.input(z.object({ enabled: z.boolean() }))
 			.mutation(() => {
+				return { success: true };
+			}),
+
+		getAiCliAgent: publicProcedure.query(() => {
+			const row = getSettings();
+			return normalizeAiCliAgent(row.anthropicModel);
+		}),
+
+		setAiCliAgent: publicProcedure
+			.input(z.object({ agent: z.enum(AI_CLI_AGENTS) }))
+			.mutation(({ input }) => {
+				localDb
+					.insert(settings)
+					.values({ id: 1, anthropicModel: input.agent })
+					.onConflictDoUpdate({
+						target: settings.id,
+						set: { anthropicModel: input.agent },
+					})
+					.run();
 				return { success: true };
 			}),
 

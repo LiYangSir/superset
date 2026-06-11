@@ -2,14 +2,13 @@ import {
 	agentActivities,
 	projects,
 	type SelectAgentActivity,
-	type SelectSettings,
-	settings,
 } from "@superset/local-db";
 import { and, desc, eq, gte, inArray, isNull, not } from "drizzle-orm";
 import { localDb } from "main/lib/local-db";
 import { z } from "zod";
 import { publicProcedure, router } from "../..";
 import { readLatestClaudeSession } from "../memory/session-reader";
+import { getConfiguredAiCliAgent, runAiCliWithTempCwd } from "../utils/ai-cli";
 import { getWorkspaceWithRelations } from "../workspaces/utils/db-helpers";
 
 export const createAgentActivitiesRouter = () => {
@@ -272,9 +271,7 @@ export const createAgentActivitiesRouter = () => {
 					isNull(agentActivities.archivedAt),
 				];
 				if (input.workspaceId) {
-					conditions.push(
-						eq(agentActivities.workspaceId, input.workspaceId),
-					);
+					conditions.push(eq(agentActivities.workspaceId, input.workspaceId));
 				}
 				if (input.projectId) {
 					conditions.push(eq(agentActivities.projectId, input.projectId));
@@ -427,19 +424,6 @@ export const createAgentActivitiesRouter = () => {
 		generateWeeklyReport: publicProcedure
 			.input(z.object({}))
 			.mutation(async () => {
-				const settingsRow = localDb.select().from(settings).get() as
-					| SelectSettings
-					| undefined;
-				const apiKey =
-					settingsRow?.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
-				if (!apiKey) {
-					return { success: false, reason: "no_api_key" as const, report: null };
-				}
-
-				const baseUrl =
-					settingsRow?.anthropicBaseUrl || "https://api.anthropic.com";
-				const model = settingsRow?.anthropicModel || "deepseek-v4-flash";
-
 				const disabledProjects = localDb
 					.select({ id: projects.id })
 					.from(projects)
@@ -479,7 +463,11 @@ export const createAgentActivitiesRouter = () => {
 					.all();
 
 				if (rows.length === 0) {
-					return { success: false, reason: "no_activities" as const, report: null };
+					return {
+						success: false,
+						reason: "no_activities" as const,
+						report: null,
+					};
 				}
 
 				const grouped = new Map<string, { name: string; items: string[] }>();
@@ -506,21 +494,8 @@ export const createAgentActivitiesRouter = () => {
 				}
 
 				try {
-					const response = await fetch(`${baseUrl}/v1/messages`, {
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							"x-api-key": apiKey,
-							"anthropic-version": "2023-06-01",
-							"User-Agent": "claude-cli/2.1.44 (external, sdk-cli)",
-						},
-						body: JSON.stringify({
-							model,
-							max_tokens: 2048,
-							messages: [
-								{
-									role: "user",
-									content: `Based on the following agent activity records from the past week, generate a concise weekly work report (周报) in Chinese. Requirements:
+					const result = await runAiCliWithTempCwd(
+						`Based on the following agent activity records from the past week, generate a concise weekly work report (周报) in Chinese. Requirements:
 
 1. Skip trivial or meaningless entries (e.g. "继续", "重试", "ok", "continue", single-word confirmations, retries, etc.)
 2. Group by project, summarize key accomplishments, and highlight important changes
@@ -533,31 +508,21 @@ ${activitiesText}
 Total activities: ${rows.length}
 
 Generate the weekly report now. Use Chinese. Output markdown only, no extra commentary.`,
-								},
-							],
-						}),
-					});
+						{
+							agent: getConfiguredAiCliAgent(),
+							timeoutMs: 120_000,
+						},
+					);
 
-					if (!response.ok) {
-						return { success: false, reason: "api_error" as const, report: null };
-					}
-
-					const data = (await response.json()) as {
-						content: Array<{ type: string; text?: string }>;
-					};
-					const report = data.content
-						?.find((c) => c.type === "text")
-						?.text?.trim();
-
-					if (!report) {
+					if (!result.ok) {
 						return {
 							success: false,
-							reason: "empty_response" as const,
+							reason: result.reason,
 							report: null,
 						};
 					}
 
-					return { success: true, report };
+					return { success: true, report: result.text };
 				} catch {
 					return { success: false, reason: "exception" as const, report: null };
 				}
@@ -566,12 +531,6 @@ Generate the weekly report now. Use Chinese. Output markdown only, no extra comm
 };
 
 async function summarizeActivityAsync(activityId: string, workspaceId: string) {
-	const settingsRow = localDb.select().from(settings).get() as
-		| SelectSettings
-		| undefined;
-	const apiKey = settingsRow?.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
-	if (!apiKey) return;
-
 	const relations = getWorkspaceWithRelations(workspaceId);
 	const projectPath = relations?.project?.mainRepoPath;
 	if (!projectPath) return;
@@ -580,68 +539,36 @@ async function summarizeActivityAsync(activityId: string, workspaceId: string) {
 }
 
 async function doSummarize(activityId: string, projectPath: string) {
-	const settingsRow = localDb.select().from(settings).get() as
-		| SelectSettings
-		| undefined;
-	const apiKey = settingsRow?.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
-	if (!apiKey) {
-		return { success: false, reason: "no_api_key" as const };
-	}
-
-	const baseUrl = settingsRow?.anthropicBaseUrl || "https://api.anthropic.com";
-	const model = settingsRow?.anthropicModel || "deepseek-v4-flash";
-
 	const transcript = readLatestClaudeSession(projectPath);
 	if (!transcript) {
 		return { success: false, reason: "no_transcript" as const };
 	}
 
 	try {
-		const response = await fetch(`${baseUrl}/v1/messages`, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				"x-api-key": apiKey,
-				"anthropic-version": "2023-06-01",
-				"User-Agent": "claude-cli/2.1.44 (external, sdk-cli)",
-			},
-			body: JSON.stringify({
-				model,
-				max_tokens: 256,
-				messages: [
-					{
-						role: "user",
-						content: `Summarize what the agent accomplished in this session in 1-2 concise sentences. Focus on the concrete outcome (what was built, fixed, or changed), not the process. Use the same language as the user messages in the transcript (if the user wrote in Chinese, respond in Chinese).
+		const result = await runAiCliWithTempCwd(
+			`Summarize what the agent accomplished in this session in 1-2 concise sentences. Focus on the concrete outcome (what was built, fixed, or changed), not the process. Use the same language as the user messages in the transcript (if the user wrote in Chinese, respond in Chinese).
 
 Session transcript:
 ${transcript}
 
 Return ONLY the summary text, no JSON, no markdown.`,
-					},
-				],
-			}),
-		});
+			{
+				agent: getConfiguredAiCliAgent(),
+				timeoutMs: 60_000,
+			},
+		);
 
-		if (!response.ok) {
-			return { success: false, reason: "api_error" as const };
-		}
-
-		const data = (await response.json()) as {
-			content: Array<{ type: string; text?: string }>;
-		};
-		const summary = data.content?.find((c) => c.type === "text")?.text?.trim();
-
-		if (!summary) {
-			return { success: false, reason: "empty_response" as const };
+		if (!result.ok) {
+			return { success: false, reason: result.reason };
 		}
 
 		localDb
 			.update(agentActivities)
-			.set({ summary, updatedAt: Date.now() })
+			.set({ summary: result.text, updatedAt: Date.now() })
 			.where(eq(agentActivities.id, activityId))
 			.run();
 
-		return { success: true, summary };
+		return { success: true, summary: result.text };
 	} catch (error) {
 		console.error("[agent-activities] summarize error:", error);
 		return { success: false, reason: "exception" as const };
