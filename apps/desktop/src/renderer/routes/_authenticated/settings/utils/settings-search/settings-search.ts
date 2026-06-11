@@ -37,7 +37,6 @@ export const SETTING_ITEM_ID = {
 	TERMINAL_LINK_BEHAVIOR: "terminal-link-behavior",
 
 	MODELS_ANTHROPIC: "models-anthropic",
-	MODELS_OPENAI: "models-openai",
 
 	INTEGRATIONS_LINEAR: "integrations-linear",
 	INTEGRATIONS_GITHUB: "integrations-github",
@@ -577,22 +576,6 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 			"claude",
 			"codex",
 			"qoder",
-			"workspace naming",
-			"auto name",
-		],
-	},
-	{
-		id: SETTING_ITEM_ID.MODELS_OPENAI,
-		section: "models",
-		title: "OpenAI Model Auth",
-		description: "Connect OpenAI for supported model tasks",
-		keywords: [
-			"models",
-			"openai",
-			"gpt",
-			"oauth",
-			"api key",
-			"auth",
 			"workspace naming",
 			"auto name",
 		],

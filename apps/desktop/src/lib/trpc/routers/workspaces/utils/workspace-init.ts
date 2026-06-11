@@ -4,7 +4,6 @@ import { track } from "main/lib/analytics";
 import { localDb } from "main/lib/local-db";
 import { workspaceInitManager } from "main/lib/workspace-init-manager";
 import type { WorkspaceInitStep } from "shared/types/workspace-init";
-import { attemptWorkspaceAutoRenameFromPrompt } from "./ai-name";
 import { resolveWorkspaceBaseBranch } from "./base-branch";
 import { getBranchBaseConfig, setBranchBaseConfig } from "./base-branch-config";
 import {
@@ -19,6 +18,7 @@ import {
 	sanitizeGitError,
 } from "./git";
 import { copySupersetConfigToWorktree } from "./setup";
+import { attemptWorkspaceAutoRenameFromPrompt } from "./workspace-naming";
 
 export interface WorkspaceInitParams {
 	workspaceId: string;
