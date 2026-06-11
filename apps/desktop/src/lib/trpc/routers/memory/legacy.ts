@@ -357,8 +357,11 @@ export const createLegacyMemoryRouter = () => {
 				for (const m of existingMemories) {
 					const scope = m.scope;
 					const cat = m.category || "General";
-					if (!grouped.has(scope)) grouped.set(scope, new Map());
-					const scopeMap = grouped.get(scope)!;
+					let scopeMap = grouped.get(scope);
+					if (!scopeMap) {
+						scopeMap = new Map();
+						grouped.set(scope, scopeMap);
+					}
 					if (!scopeMap.has(cat)) scopeMap.set(cat, []);
 					scopeMap.get(cat)?.push(m.content);
 				}
@@ -435,16 +438,27 @@ Rules:
 						content?: string;
 					}>;
 
-					const validScopes = new Set(["global", "project"]);
-					const validItems = parsed.filter(
-						(item) =>
-							item.content &&
-							typeof item.content === "string" &&
-							item.category &&
-							typeof item.category === "string" &&
-							item.scope &&
-							validScopes.has(item.scope),
-					);
+					const validScopes = new Set<"global" | "project">([
+						"global",
+						"project",
+					]);
+					const validItems = parsed.flatMap((item) => {
+						if (
+							typeof item.content !== "string" ||
+							typeof item.category !== "string" ||
+							!item.scope ||
+							!validScopes.has(item.scope)
+						) {
+							return [];
+						}
+						return [
+							{
+								content: item.content,
+								category: item.category,
+								scope: item.scope,
+							},
+						];
+					});
 
 					if (validItems.length === 0) {
 						return { success: true, categories: 0 };
@@ -475,10 +489,10 @@ Rules:
 						localDb
 							.insert(memories)
 							.values({
-								content: item.content!,
-								scope: item.scope!,
+								content: item.content,
+								scope: item.scope,
 								projectId: itemProjectId,
-								category: item.category!,
+								category: item.category,
 							})
 							.run();
 					}
@@ -565,8 +579,11 @@ Rules:
 					for (const m of existingMemories) {
 						const scope = m.scope;
 						const cat = m.category || "General";
-						if (!grouped.has(scope)) grouped.set(scope, new Map());
-						const scopeMap = grouped.get(scope)!;
+						let scopeMap = grouped.get(scope);
+						if (!scopeMap) {
+							scopeMap = new Map();
+							grouped.set(scope, scopeMap);
+						}
 						if (!scopeMap.has(cat)) scopeMap.set(cat, []);
 						scopeMap.get(cat)?.push(m.content);
 					}
@@ -663,16 +680,27 @@ Rules:
 						return { success: true, categories: 0 };
 					}
 
-					const validScopes = new Set(["global", "project"]);
-					const validItems = parsed.filter(
-						(item) =>
-							item.content &&
-							typeof item.content === "string" &&
-							item.category &&
-							typeof item.category === "string" &&
-							item.scope &&
-							validScopes.has(item.scope),
-					);
+					const validScopes = new Set<"global" | "project">([
+						"global",
+						"project",
+					]);
+					const validItems = parsed.flatMap((item) => {
+						if (
+							typeof item.content !== "string" ||
+							typeof item.category !== "string" ||
+							!item.scope ||
+							!validScopes.has(item.scope)
+						) {
+							return [];
+						}
+						return [
+							{
+								content: item.content,
+								category: item.category,
+								scope: item.scope,
+							},
+						];
+					});
 
 					if (validItems.length === 0) {
 						console.log("[memory] No valid items after filtering");
@@ -704,10 +732,10 @@ Rules:
 						localDb
 							.insert(memories)
 							.values({
-								content: item.content!,
-								scope: item.scope!,
+								content: item.content,
+								scope: item.scope,
 								projectId: itemProjectId,
-								category: item.category!,
+								category: item.category,
 							})
 							.run();
 					}

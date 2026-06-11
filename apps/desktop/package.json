@@ -29,9 +29,9 @@
 		"install:deps": "electron-builder install-app-deps",
 		"release": "electron-builder --publish always",
 		"clean:dev": "rimraf ./node_modules/.dev",
-		"generate:routes": "tsr generate",
+		"generate:routes": "bun ./node_modules/@tanstack/router-cli/bin/tsr.cjs generate",
 		"pretypecheck": "bun run generate:icons && bun run generate:routes",
-		"typecheck": "tsc --noEmit",
+		"typecheck": "bun ./node_modules/typescript/bin/tsc --noEmit",
 		"test": "bun test"
 	},
 	"dependencies": {

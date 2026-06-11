@@ -16,6 +16,7 @@ const TEST_DIR = join(
 	realpathSync(tmpdir()),
 	`superset-test-git-${process.pid}`,
 );
+const SLOW_PROCESS_TEST_TIMEOUT_MS = 15_000;
 
 function createTestRepo(name: string): string {
 	const repoPath = join(TEST_DIR, name);
@@ -232,154 +233,184 @@ describe("getDefaultBranch", () => {
 });
 
 describe("Shell Environment", () => {
-	test("getShellEnvironment returns PATH", async () => {
-		const { getShellEnvironment } = await import("./shell-env");
+	test(
+		"getShellEnvironment returns PATH",
+		async () => {
+			const { getShellEnvironment } = await import("./shell-env");
 
-		const env = await getShellEnvironment();
-
-		// Should have PATH
-		expect(env.PATH || env.Path).toBeDefined();
-	});
-
-	test("clearShellEnvCache clears cache", async () => {
-		const { clearShellEnvCache, getShellEnvironment } = await import(
-			"./shell-env"
-		);
-
-		// Get env (populates cache)
-		await getShellEnvironment();
-
-		// Clear cache
-		clearShellEnvCache();
-
-		// Should work again (cache was cleared)
-		const env = await getShellEnvironment();
-		expect(env.PATH || env.Path).toBeDefined();
-	});
-
-	test("getProcessEnvWithShellPath applies shell PATH and preserves string vars", async () => {
-		const { getProcessEnvWithShellPath, getShellEnvironment } = await import(
-			"./shell-env"
-		);
-
-		const shellEnv = await getShellEnvironment();
-		const env = await getProcessEnvWithShellPath({
-			PATH: "/usr/bin",
-			FOO: "bar",
-			UNSET: undefined,
-		});
-
-		expect(env.FOO).toBe("bar");
-		expect("UNSET" in env).toBe(false);
-
-		const shellPath = shellEnv.PATH || shellEnv.Path;
-		if (shellPath) {
-			expect(env.PATH).toBe(shellPath);
-			if (process.platform === "win32" || "Path" in shellEnv) {
-				expect(env.Path).toBe(shellPath);
-			}
-		}
-	});
-
-	test("getShellEnvironment PATH includes homebrew and user-installed tools", async () => {
-		const { clearShellEnvCache, getShellEnvironment } = await import(
-			"./shell-env"
-		);
-		clearShellEnvCache();
-
-		const env = await getShellEnvironment();
-		const shellPath = env.PATH || env.Path || "";
-
-		// The derived PATH should be richer than the minimal macOS GUI PATH
-		// (/usr/bin:/bin:/usr/sbin:/sbin). It should include at least one of
-		// these common user-installed tool directories.
-		const userPaths = [
-			"/opt/homebrew/bin",
-			"/usr/local/bin",
-			"/home/linuxbrew/.linuxbrew/bin",
-		];
-		const hasUserPath = userPaths.some((p) => shellPath.includes(p));
-		expect(hasUserPath).toBe(true);
-	});
-
-	test("getShellEnvironment strips delimiter noise from interactive shell output", async () => {
-		const { clearShellEnvCache, getShellEnvironment } = await import(
-			"./shell-env"
-		);
-		clearShellEnvCache();
-
-		const env = await getShellEnvironment();
-
-		// Delimiter markers should not leak into any env key or value
-		expect(
-			Object.keys(env).some((k) => k.includes("_SHELL_ENV_DELIMITER_")),
-		).toBe(false);
-		expect(
-			Object.values(env).some((v) => v.includes("_SHELL_ENV_DELIMITER_")),
-		).toBe(false);
-	});
-
-	test("getProcessEnvWithShellPath overrides minimal GUI PATH with shell PATH", async () => {
-		const { clearShellEnvCache, getProcessEnvWithShellPath } = await import(
-			"./shell-env"
-		);
-		clearShellEnvCache();
-
-		// Simulate the minimal PATH a macOS GUI app gets from Finder/Dock
-		const guiPath = "/usr/bin:/bin:/usr/sbin:/sbin";
-		const env = await getProcessEnvWithShellPath({
-			PATH: guiPath,
-			HOME: process.env.HOME,
-		});
-
-		// The resulting PATH should NOT be the minimal GUI PATH
-		expect(env.PATH).not.toBe(guiPath);
-		// It should contain additional directories from the shell
-		expect(env.PATH.length).toBeGreaterThan(guiPath.length);
-	});
-
-	test("getShellEnvironment captures .zshrc variables (requires -ilc)", async () => {
-		// This test proves that getShellEnvironment uses an interactive shell (-i)
-		// which sources .zshrc. Without -i, only .zprofile is sourced and tools
-		// installed via nvm/volta/fnm (configured in .zshrc) won't be in PATH.
-		//
-		// We use ZDOTDIR to point zsh at a temp .zshrc with a known test variable.
-		// -lc (non-interactive) won't source it → test fails
-		// -ilc (interactive) will source it → test passes
-		const { clearShellEnvCache, getShellEnvironment } = await import(
-			"./shell-env"
-		);
-		const zshPath = ["/bin/zsh", "/usr/bin/zsh"].find((candidate) =>
-			existsSync(candidate),
-		);
-		if (!zshPath) {
-			return;
-		}
-
-		const tmpDir = mkdtempSync(join(realpathSync(tmpdir()), "shell-env-test-"));
-		writeFileSync(
-			join(tmpDir, ".zshrc"),
-			'export __SUPERSET_SHELL_ENV_TEST__="interactive"\n',
-		);
-
-		const origZDOTDIR = process.env.ZDOTDIR;
-		const origShell = process.env.SHELL;
-		process.env.SHELL = zshPath;
-		process.env.ZDOTDIR = tmpDir;
-		clearShellEnvCache();
-
-		try {
 			const env = await getShellEnvironment();
-			expect(env.__SUPERSET_SHELL_ENV_TEST__).toBe("interactive");
-		} finally {
-			if (origZDOTDIR !== undefined) process.env.ZDOTDIR = origZDOTDIR;
-			else delete process.env.ZDOTDIR;
-			if (origShell !== undefined) process.env.SHELL = origShell;
-			else delete process.env.SHELL;
+
+			// Should have PATH
+			expect(env.PATH || env.Path).toBeDefined();
+		},
+		SLOW_PROCESS_TEST_TIMEOUT_MS,
+	);
+
+	test(
+		"clearShellEnvCache clears cache",
+		async () => {
+			const { clearShellEnvCache, getShellEnvironment } = await import(
+				"./shell-env"
+			);
+
+			// Get env (populates cache)
+			await getShellEnvironment();
+
+			// Clear cache
 			clearShellEnvCache();
-			rmSync(tmpDir, { recursive: true });
-		}
-	});
+
+			// Should work again (cache was cleared)
+			const env = await getShellEnvironment();
+			expect(env.PATH || env.Path).toBeDefined();
+		},
+		SLOW_PROCESS_TEST_TIMEOUT_MS,
+	);
+
+	test(
+		"getProcessEnvWithShellPath applies shell PATH and preserves string vars",
+		async () => {
+			const { getProcessEnvWithShellPath, getShellEnvironment } = await import(
+				"./shell-env"
+			);
+
+			const shellEnv = await getShellEnvironment();
+			const env = await getProcessEnvWithShellPath({
+				PATH: "/usr/bin",
+				FOO: "bar",
+				UNSET: undefined,
+			});
+
+			expect(env.FOO).toBe("bar");
+			expect("UNSET" in env).toBe(false);
+
+			const shellPath = shellEnv.PATH || shellEnv.Path;
+			if (shellPath) {
+				expect(env.PATH).toBe(shellPath);
+				if (process.platform === "win32" || "Path" in shellEnv) {
+					expect(env.Path).toBe(shellPath);
+				}
+			}
+		},
+		SLOW_PROCESS_TEST_TIMEOUT_MS,
+	);
+
+	test(
+		"getShellEnvironment PATH includes homebrew and user-installed tools",
+		async () => {
+			const { clearShellEnvCache, getShellEnvironment } = await import(
+				"./shell-env"
+			);
+			clearShellEnvCache();
+
+			const env = await getShellEnvironment();
+			const shellPath = env.PATH || env.Path || "";
+
+			// The derived PATH should be richer than the minimal macOS GUI PATH
+			// (/usr/bin:/bin:/usr/sbin:/sbin). It should include at least one of
+			// these common user-installed tool directories.
+			const userPaths = [
+				"/opt/homebrew/bin",
+				"/usr/local/bin",
+				"/home/linuxbrew/.linuxbrew/bin",
+			];
+			const hasUserPath = userPaths.some((p) => shellPath.includes(p));
+			expect(hasUserPath).toBe(true);
+		},
+		SLOW_PROCESS_TEST_TIMEOUT_MS,
+	);
+
+	test(
+		"getShellEnvironment strips delimiter noise from interactive shell output",
+		async () => {
+			const { clearShellEnvCache, getShellEnvironment } = await import(
+				"./shell-env"
+			);
+			clearShellEnvCache();
+
+			const env = await getShellEnvironment();
+
+			// Delimiter markers should not leak into any env key or value
+			expect(
+				Object.keys(env).some((k) => k.includes("_SHELL_ENV_DELIMITER_")),
+			).toBe(false);
+			expect(
+				Object.values(env).some((v) => v.includes("_SHELL_ENV_DELIMITER_")),
+			).toBe(false);
+		},
+		SLOW_PROCESS_TEST_TIMEOUT_MS,
+	);
+
+	test(
+		"getProcessEnvWithShellPath overrides minimal GUI PATH with shell PATH",
+		async () => {
+			const { clearShellEnvCache, getProcessEnvWithShellPath } = await import(
+				"./shell-env"
+			);
+			clearShellEnvCache();
+
+			// Simulate the minimal PATH a macOS GUI app gets from Finder/Dock
+			const guiPath = "/usr/bin:/bin:/usr/sbin:/sbin";
+			const env = await getProcessEnvWithShellPath({
+				PATH: guiPath,
+				HOME: process.env.HOME,
+			});
+
+			// The resulting PATH should NOT be the minimal GUI PATH
+			expect(env.PATH).not.toBe(guiPath);
+			// It should contain additional directories from the shell
+			expect(env.PATH.length).toBeGreaterThan(guiPath.length);
+		},
+		SLOW_PROCESS_TEST_TIMEOUT_MS,
+	);
+
+	test(
+		"getShellEnvironment captures .zshrc variables (requires -ilc)",
+		async () => {
+			// This test proves that getShellEnvironment uses an interactive shell (-i)
+			// which sources .zshrc. Without -i, only .zprofile is sourced and tools
+			// installed via nvm/volta/fnm (configured in .zshrc) won't be in PATH.
+			//
+			// We use ZDOTDIR to point zsh at a temp .zshrc with a known test variable.
+			// -lc (non-interactive) won't source it -> test fails
+			// -ilc (interactive) will source it -> test passes
+			const { clearShellEnvCache, getShellEnvironment } = await import(
+				"./shell-env"
+			);
+			const zshPath = ["/bin/zsh", "/usr/bin/zsh"].find((candidate) =>
+				existsSync(candidate),
+			);
+			if (!zshPath) {
+				return;
+			}
+
+			const tmpDir = mkdtempSync(
+				join(realpathSync(tmpdir()), "shell-env-test-"),
+			);
+			writeFileSync(
+				join(tmpDir, ".zshrc"),
+				'export __SUPERSET_SHELL_ENV_TEST__="interactive"\n',
+			);
+
+			const origZDOTDIR = process.env.ZDOTDIR;
+			const origShell = process.env.SHELL;
+			process.env.SHELL = zshPath;
+			process.env.ZDOTDIR = tmpDir;
+			clearShellEnvCache();
+
+			try {
+				const env = await getShellEnvironment();
+				expect(env.__SUPERSET_SHELL_ENV_TEST__).toBe("interactive");
+			} finally {
+				if (origZDOTDIR !== undefined) process.env.ZDOTDIR = origZDOTDIR;
+				else delete process.env.ZDOTDIR;
+				if (origShell !== undefined) process.env.SHELL = origShell;
+				else delete process.env.SHELL;
+				clearShellEnvCache();
+				rmSync(tmpDir, { recursive: true });
+			}
+		},
+		SLOW_PROCESS_TEST_TIMEOUT_MS,
+	);
 });
 
 describe("createWorktree hook tolerance", () => {
@@ -393,46 +424,54 @@ describe("createWorktree hook tolerance", () => {
 		}
 	});
 
-	test("continues when post-checkout hook fails but worktree is created", async () => {
-		const repoPath = createTestRepo("worktree-hook-failure");
-		seedCommit(repoPath);
+	test(
+		"continues when post-checkout hook fails but worktree is created",
+		async () => {
+			const repoPath = createTestRepo("worktree-hook-failure");
+			seedCommit(repoPath);
 
-		const hookPath = join(repoPath, ".git", "hooks", "post-checkout");
-		writeFileSync(
-			hookPath,
-			"#!/bin/sh\necho 'post-checkout failed' >&2\nexit 1\n",
-		);
-		execSync(`chmod +x "${hookPath}"`);
+			const hookPath = join(repoPath, ".git", "hooks", "post-checkout");
+			writeFileSync(
+				hookPath,
+				"#!/bin/sh\necho 'post-checkout failed' >&2\nexit 1\n",
+			);
+			execSync(`chmod +x "${hookPath}"`);
 
-		const worktreePath = join(TEST_DIR, "worktree-hook-failure-wt");
-		await createWorktree(
-			repoPath,
-			"feature/hook-failure",
-			worktreePath,
-			"HEAD",
-		);
+			const worktreePath = join(TEST_DIR, "worktree-hook-failure-wt");
+			await createWorktree(
+				repoPath,
+				"feature/hook-failure",
+				worktreePath,
+				"HEAD",
+			);
 
-		expect(existsSync(worktreePath)).toBe(true);
-		const currentBranch = execSync("git rev-parse --abbrev-ref HEAD", {
-			cwd: worktreePath,
-		})
-			.toString()
-			.trim();
-		expect(currentBranch).toBe("feature/hook-failure");
-	});
+			expect(existsSync(worktreePath)).toBe(true);
+			const currentBranch = execSync("git rev-parse --abbrev-ref HEAD", {
+				cwd: worktreePath,
+			})
+				.toString()
+				.trim();
+			expect(currentBranch).toBe("feature/hook-failure");
+		},
+		SLOW_PROCESS_TEST_TIMEOUT_MS,
+	);
 
-	test("throws when destination path exists but worktree is not created", async () => {
-		const repoPath = createTestRepo("worktree-existing-path");
-		seedCommit(repoPath);
+	test(
+		"throws when destination path exists but worktree is not created",
+		async () => {
+			const repoPath = createTestRepo("worktree-existing-path");
+			seedCommit(repoPath);
 
-		const worktreePath = join(TEST_DIR, "worktree-existing-path-wt");
-		mkdirSync(worktreePath, { recursive: true });
-		writeFileSync(join(worktreePath, "keep.txt"), "keep");
+			const worktreePath = join(TEST_DIR, "worktree-existing-path-wt");
+			mkdirSync(worktreePath, { recursive: true });
+			writeFileSync(join(worktreePath, "keep.txt"), "keep");
 
-		await expect(
-			createWorktree(repoPath, "feature/existing-path", worktreePath, "HEAD"),
-		).rejects.toThrow("already exists");
-	});
+			await expect(
+				createWorktree(repoPath, "feature/existing-path", worktreePath, "HEAD"),
+			).rejects.toThrow("already exists");
+		},
+		SLOW_PROCESS_TEST_TIMEOUT_MS,
+	);
 });
 
 describe("getCurrentBranch", () => {

@@ -55,7 +55,10 @@ function AgentToolCard({
 								: "text-muted-foreground/40"
 						}`}
 					/>
-					<Badge variant="secondary" className="text-[10px] h-4 px-1.5 shrink-0">
+					<Badge
+						variant="secondary"
+						className="text-[10px] h-4 px-1.5 shrink-0"
+					>
 						{syncedSkills.length}
 					</Badge>
 					{open ? (
@@ -128,8 +131,8 @@ function AgentSection() {
 }
 
 function ProjectsSection() {
-	const { data: workspaces, isLoading } =
-		electronTrpc.workspaces.getAll.useQuery();
+	const { data: projects = [], isLoading } =
+		electronTrpc.projects.getRecents.useQuery();
 
 	if (isLoading) {
 		return (
@@ -138,12 +141,6 @@ function ProjectsSection() {
 			</div>
 		);
 	}
-
-	const projects = (workspaces ?? []).map((w) => ({
-		id: w.id,
-		name: w.name ?? w.path?.split("/").pop() ?? "Unnamed",
-		path: w.path ?? "",
-	}));
 
 	if (projects.length === 0) {
 		return (
@@ -164,7 +161,7 @@ function ProjectsSection() {
 					<div className="min-w-0 flex-1">
 						<p className="text-sm font-medium truncate">{project.name}</p>
 						<p className="text-xs text-muted-foreground truncate">
-							{project.path}
+							{project.mainRepoPath}
 						</p>
 					</div>
 					<Button
@@ -193,9 +190,7 @@ export function WorkspacesTab() {
 	return (
 		<div className="p-4 space-y-5">
 			<section>
-				<p className="text-xs font-medium text-muted-foreground mb-2">
-					Agents
-				</p>
+				<p className="text-xs font-medium text-muted-foreground mb-2">Agents</p>
 				<AgentSection />
 			</section>
 

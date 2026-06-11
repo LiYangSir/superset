@@ -7,8 +7,8 @@ describe("notifications/server", () => {
 			expect(mapEventType("Start")).toBe("Start");
 		});
 
-		it("should map 'UserPromptSubmit' to 'Start'", () => {
-			expect(mapEventType("UserPromptSubmit")).toBe("Start");
+		it("should map 'UserPromptSubmit' to 'UserPrompt'", () => {
+			expect(mapEventType("UserPromptSubmit")).toBe("UserPrompt");
 		});
 
 		it("should map 'Stop' to 'Stop'", () => {

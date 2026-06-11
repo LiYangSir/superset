@@ -18,7 +18,7 @@ describe("getNotifyScriptContent", () => {
 			'--data-urlencode "hookSessionId=$HOOK_SESSION_ID"',
 		);
 		expect(script).toContain(
-			"event=$EVENT_TYPE sessionId=$SESSION_ID hookSessionId=$HOOK_SESSION_ID resourceId=$RESOURCE_ID",
+			"event=$EVENT_TYPE userMessage=$USER_MESSAGE sessionId=$SESSION_ID hookSessionId=$HOOK_SESSION_ID resourceId=$RESOURCE_ID",
 		);
 	});
 });

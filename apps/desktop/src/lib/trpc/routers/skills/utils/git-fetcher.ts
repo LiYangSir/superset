@@ -211,7 +211,11 @@ export function resolveSkillDir(
 export async function getHeadRevision(repoDir: string): Promise<string> {
 	const git = await getSimpleGitWithShellPath(repoDir);
 	const log = await git.log({ maxCount: 1 });
-	return log.latest?.hash;
+	const revision = log.latest?.hash;
+	if (!revision) {
+		throw new Error(`Unable to resolve HEAD revision for ${repoDir}`);
+	}
+	return revision;
 }
 
 export async function cleanupTemp(tempDir: string): Promise<void> {

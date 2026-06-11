@@ -14,6 +14,7 @@ import { localDb } from "main/lib/local-db";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 import { publicProcedure } from "../../..";
+import { hashDirectory } from "../utils/content-hash";
 import {
 	cleanupTemp,
 	cloneRepo,
@@ -29,7 +30,6 @@ import {
 	parseSkillMetadata,
 	sanitizeName,
 } from "../utils/installer";
-import { hashDirectory } from "../utils/content-hash";
 import { removeTarget } from "../utils/sync-engine";
 import {
 	getAllAdapters,
@@ -180,11 +180,18 @@ function getCentralRepoPath(): string {
 }
 
 function findExistingSkillByName(name: string) {
-	return localDb
-		.select()
-		.from(skills)
-		.where(eq(skills.name, name))
-		.get();
+	return localDb.select().from(skills).where(eq(skills.name, name)).get();
+}
+
+function getSkillByIdOrThrow(id: string) {
+	const skill = localDb.select().from(skills).where(eq(skills.id, id)).get();
+	if (!skill) {
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: `Skill ${id} not found after write`,
+		});
+	}
+	return skill;
 }
 
 export function createSkillsProcedures() {
@@ -392,7 +399,7 @@ export function createSkillsProcedures() {
 							})
 							.where(eq(skills.id, existing.id))
 							.run();
-						return localDb.select().from(skills).where(eq(skills.id, existing.id)).get()!;
+						return getSkillByIdOrThrow(existing.id);
 					}
 
 					const id = uuidv4();
@@ -412,7 +419,7 @@ export function createSkillsProcedures() {
 						})
 						.run();
 
-					return localDb.select().from(skills).where(eq(skills.id, id)).get()!;
+					return getSkillByIdOrThrow(id);
 				} catch (err) {
 					throw new TRPCError({
 						code: "INTERNAL_SERVER_ERROR",
@@ -474,7 +481,7 @@ export function createSkillsProcedures() {
 							})
 							.where(eq(skills.id, existing.id))
 							.run();
-						return localDb.select().from(skills).where(eq(skills.id, existing.id)).get()!;
+						return getSkillByIdOrThrow(existing.id);
 					}
 
 					const id = uuidv4();
@@ -498,7 +505,7 @@ export function createSkillsProcedures() {
 						})
 						.run();
 
-					return localDb.select().from(skills).where(eq(skills.id, id)).get()!;
+					return getSkillByIdOrThrow(id);
 				} catch (err) {
 					throw new TRPCError({
 						code: "INTERNAL_SERVER_ERROR",
@@ -567,7 +574,7 @@ export function createSkillsProcedures() {
 							})
 							.where(eq(skills.id, existing.id))
 							.run();
-						return localDb.select().from(skills).where(eq(skills.id, existing.id)).get()!;
+						return getSkillByIdOrThrow(existing.id);
 					}
 
 					const id = uuidv4();
@@ -591,7 +598,7 @@ export function createSkillsProcedures() {
 						})
 						.run();
 
-					return localDb.select().from(skills).where(eq(skills.id, id)).get()!;
+					return getSkillByIdOrThrow(id);
 				} catch (err) {
 					throw new TRPCError({
 						code: "INTERNAL_SERVER_ERROR",
@@ -816,8 +823,9 @@ export function createSkillsProcedures() {
 
 			for (const skill of allSkills) {
 				try {
+					if (!skill.sourceRefResolved) continue;
 					const remoteRev = await resolveRemoteRevision(
-						skill.sourceRefResolved!,
+						skill.sourceRefResolved,
 						skill.sourceBranch ?? undefined,
 					);
 
@@ -1035,7 +1043,10 @@ export function createSkillsProcedures() {
 					skill.centralPath?.startsWith(centralRepo) &&
 					!dirsOnDisk.has(skill.centralPath)
 				) {
-					localDb.delete(skillTargets).where(eq(skillTargets.skillId, skill.id)).run();
+					localDb
+						.delete(skillTargets)
+						.where(eq(skillTargets.skillId, skill.id))
+						.run();
 					localDb.delete(skills).where(eq(skills.id, skill.id)).run();
 				}
 			}
@@ -1122,11 +1133,7 @@ export function createSkillsProcedures() {
 					if (existingSourceRefs.has(skillDir)) continue;
 
 					try {
-						const result = await installFromLocal(
-							skillDir,
-							null,
-							centralRepo,
-						);
+						const result = await installFromLocal(skillDir, null, centralRepo);
 
 						const existing = findExistingSkillByName(result.name);
 						const now = Date.now();

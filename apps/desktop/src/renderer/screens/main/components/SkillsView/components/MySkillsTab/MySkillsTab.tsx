@@ -19,7 +19,6 @@ import {
 } from "react-icons/lu";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useSkillsViewStore } from "renderer/stores/skills/store";
-import type { SkillsViewMode } from "../../constants";
 import { SOURCE_TYPES } from "../../constants";
 import { SkillCard } from "../SkillCard/SkillCard";
 import { SkillDetailPanel } from "../SkillDetailPanel/SkillDetailPanel";

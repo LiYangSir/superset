@@ -1,5 +1,6 @@
 import { execFile, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import { mkdir, rename } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -98,6 +99,7 @@ async function execWorktreeAdd({
 			await execWithShellEnv("git", args, { timeout });
 		},
 		didSucceed: async () =>
+			existsSync(worktreePath) ||
 			isWorktreeRegistered({ mainRepoPath, worktreePath }),
 	});
 }

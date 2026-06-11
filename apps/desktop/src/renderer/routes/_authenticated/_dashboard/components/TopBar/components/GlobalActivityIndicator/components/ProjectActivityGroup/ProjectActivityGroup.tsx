@@ -1,7 +1,4 @@
-import type {
-	AgentActivityStatus,
-	SelectAgentActivity,
-} from "@superset/local-db";
+import type { SelectAgentActivity } from "@superset/local-db";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -9,7 +6,14 @@ import {
 } from "@superset/ui/collapsible";
 import { cn } from "@superset/ui/utils";
 import { useState } from "react";
-import { LuArchive, LuCheck, LuChevronRight, LuCircle, LuCircleAlert, LuLoader } from "react-icons/lu";
+import {
+	LuArchive,
+	LuCheck,
+	LuChevronRight,
+	LuCircle,
+	LuCircleAlert,
+	LuLoader,
+} from "react-icons/lu";
 import {
 	formatDuration,
 	formatRelativeTime,
@@ -59,11 +63,7 @@ export function ProjectActivityGroup({
 			</CollapsibleTrigger>
 			<CollapsibleContent>
 				{activities.map((a) => (
-					<ActivityItem
-						key={a.id}
-						activity={a}
-						onArchive={onArchive}
-					/>
+					<ActivityItem key={a.id} activity={a} onArchive={onArchive} />
 				))}
 			</CollapsibleContent>
 		</Collapsible>
@@ -139,18 +139,12 @@ function ActivityItem({
 						</p>
 					)}
 					{activity.summary && activity.userMessage && (
-						<p className="text-[11px] text-foreground/80">
-							{activity.summary}
-						</p>
+						<p className="text-[11px] text-foreground/80">{activity.summary}</p>
 					)}
 					<div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground/70">
-						{activity.modelName && (
-							<span>Model: {activity.modelName}</span>
-						)}
+						{activity.modelName && <span>Model: {activity.modelName}</span>}
 						{activity.durationMs != null && (
-							<span>
-								Duration: {formatDuration(activity.durationMs)}
-							</span>
+							<span>Duration: {formatDuration(activity.durationMs)}</span>
 						)}
 						{activity.status === "completed" && <span>Completed</span>}
 						{activity.status === "failed" && <span>Failed</span>}

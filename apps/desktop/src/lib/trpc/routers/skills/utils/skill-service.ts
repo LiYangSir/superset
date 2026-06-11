@@ -12,11 +12,7 @@ import {
 	type SkillSettingsAccessor,
 } from "./tool-adapters";
 
-const DEFAULT_CENTRAL_REPO = path.join(
-	os.homedir(),
-	".superset",
-	"skills",
-);
+const DEFAULT_CENTRAL_REPO = path.join(os.homedir(), ".superset", "skills");
 
 export async function getCentralRepoPath(): Promise<string> {
 	const row = await localDb

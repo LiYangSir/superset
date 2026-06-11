@@ -6,7 +6,6 @@ import {
 	DialogTitle,
 } from "@superset/ui/dialog";
 import { toast } from "@superset/ui/sonner";
-import { useNavigate } from "@tanstack/react-router";
 import { useOpenProject } from "renderer/react-query/projects";
 import {
 	useCloseNewWorkspaceModal,
@@ -19,7 +18,6 @@ import { NewWorkspaceModalDraftProvider } from "./NewWorkspaceModalDraftContext"
 export function NewWorkspaceModal() {
 	const isOpen = useNewWorkspaceModalOpen();
 	const closeModal = useCloseNewWorkspaceModal();
-	const navigate = useNavigate();
 	const { openNew } = useOpenProject();
 	const preSelectedProjectId = usePreSelectedProjectId();
 
@@ -36,8 +34,7 @@ export function NewWorkspaceModal() {
 	};
 
 	const handleNewProject = () => {
-		closeModal();
-		navigate({ to: "/new-project" });
+		void handleImportRepo();
 	};
 
 	return (

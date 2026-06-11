@@ -128,11 +128,18 @@ export function createPresetsProcedures() {
 					.where(eq(skillPresets.id, input.id))
 					.run();
 
-				return localDb
+				const updated = localDb
 					.select()
 					.from(skillPresets)
 					.where(eq(skillPresets.id, input.id))
-					.get()!;
+					.get();
+				if (!updated) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: `Preset ${input.id} not found after update`,
+					});
+				}
+				return updated;
 			}),
 
 		delete: publicProcedure

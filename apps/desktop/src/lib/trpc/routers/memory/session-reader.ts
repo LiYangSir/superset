@@ -52,8 +52,11 @@ function extractTextContent(
 	if (!content) return "";
 	if (typeof content === "string") return content;
 	return content
-		.filter((c) => c.type === "text" && c.text)
-		.map((c) => c.text!)
+		.filter(
+			(c): c is { type: string; text: string } =>
+				c.type === "text" && typeof c.text === "string",
+		)
+		.map((c) => c.text)
 		.join("\n");
 }
 
@@ -114,20 +117,20 @@ export function readLatestClaudeSession(projectPath?: string): string | null {
 	}
 
 	if (!targetDir) return null;
+	const resolvedTargetDir = targetDir;
 
 	const jsonlFiles = fs
-		.readdirSync(targetDir)
+		.readdirSync(resolvedTargetDir)
 		.filter((f) => f.endsWith(".jsonl"))
 		.map((f) => ({
 			name: f,
-			path: path.join(targetDir!, f),
-			mtime: fs.statSync(path.join(targetDir!, f)).mtimeMs,
+			path: path.join(resolvedTargetDir, f),
+			mtime: fs.statSync(path.join(resolvedTargetDir, f)).mtimeMs,
 		}))
 		.sort((a, b) => b.mtime - a.mtime);
 
-	if (jsonlFiles.length === 0) return null;
-
-	const latestFile = jsonlFiles[0]!;
+	const latestFile = jsonlFiles[0];
+	if (!latestFile) return null;
 	const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
 	if (latestFile.mtime < thirtyMinutesAgo) return null;
 
@@ -204,9 +207,8 @@ function findLatestJsonl(targetDir: string, maxAgeMs?: number): string | null {
 		}))
 		.sort((a, b) => b.mtime - a.mtime);
 
-	if (jsonlFiles.length === 0) return null;
-
-	const latest = jsonlFiles[0]!;
+	const latest = jsonlFiles[0];
+	if (!latest) return null;
 	if (maxAgeMs && latest.mtime < Date.now() - maxAgeMs) return null;
 
 	return latest.path;
@@ -348,8 +350,8 @@ export function parseTranscriptToTraces(
 		} else if (role === "tool" || msg.type === "tool_result") {
 			const resultText = extractTextContent(contentArr);
 			if (resultText && currentTurn.toolCalls.length > 0) {
-				const lastTool =
-					currentTurn.toolCalls[currentTurn.toolCalls.length - 1]!;
+				const lastTool = currentTurn.toolCalls.at(-1);
+				if (!lastTool) continue;
 				lastTool.output = resultText.slice(0, 1000);
 
 				const errors = extractErrorSignatures(resultText);

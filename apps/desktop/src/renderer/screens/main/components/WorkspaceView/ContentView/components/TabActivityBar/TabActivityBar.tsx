@@ -35,9 +35,7 @@ export function TabActivityBar() {
 		{
 			enabled: !!workspaceId,
 			refetchInterval: (query) => {
-				const data = query.state.data as
-					| SelectAgentActivity[]
-					| undefined;
+				const data = query.state.data as SelectAgentActivity[] | undefined;
 				const hasActive = data?.some((a) => a.status === "in_progress");
 				return hasActive ? 3000 : 30000;
 			},
@@ -49,10 +47,6 @@ export function TabActivityBar() {
 		if (!activities || activities.length === 0 || !activeTabId)
 			return { current: null, history: [] };
 
-		const tabActivities = activities.filter(
-			(a) => a.tabId === activeTabId || a.paneId,
-		);
-
 		const paneIds = new Set<string>();
 		const tabsStore = useTabsStore.getState();
 		for (const pane of Object.values(tabsStore.panes)) {
@@ -62,9 +56,7 @@ export function TabActivityBar() {
 		}
 
 		const relevant = activities.filter(
-			(a) =>
-				a.tabId === activeTabId ||
-				(a.paneId && paneIds.has(a.paneId)),
+			(a) => a.tabId === activeTabId || (a.paneId && paneIds.has(a.paneId)),
 		);
 
 		const active = relevant.find((a) => a.status === "in_progress");
@@ -124,9 +116,7 @@ function ActiveBar({ activity }: { activity: SelectAgentActivity }) {
 	);
 }
 
-function IdleBar({
-	latestActivity,
-}: { latestActivity: SelectAgentActivity }) {
+function IdleBar({ latestActivity }: { latestActivity: SelectAgentActivity }) {
 	const displayText =
 		latestActivity.summary ||
 		latestActivity.userMessage ||

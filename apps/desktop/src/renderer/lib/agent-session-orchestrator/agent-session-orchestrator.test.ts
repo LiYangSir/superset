@@ -141,4 +141,55 @@ describe("launchAgentSession", () => {
 		expect(result.status).toBe("failed");
 		expect(result.error).toContain("terminal write failed");
 	});
+
+	it("launches chat requests in a chat tab", async () => {
+		const addChatTab = mock(() => ({
+			tabId: "chat-tab",
+			paneId: "chat-pane",
+		}));
+		const switchChatSession = mock(() => {});
+		const tabs: AgentLaunchTabsAdapter = {
+			getPane: mock(() => undefined),
+			getTab: mock(() => undefined),
+			addTerminalTab: mock(() => ({ tabId: "tab-1", paneId: "pane-1" })),
+			addTerminalPane: mock(() => "pane-2"),
+			removePane: mock(() => {}),
+			setTabAutoTitle: mock(() => {}),
+			addChatTab,
+			addChatPane: mock(() => "chat-pane-2"),
+			switchChatSession,
+			setChatLaunchConfig: mock(() => {}),
+		};
+
+		const sessionId = "00000000-0000-4000-8000-000000000001";
+		const result = await launchAgentSession(
+			{
+				kind: "chat",
+				workspaceId: "ws-1",
+				agentType: "superset-chat",
+				chat: {
+					sessionId,
+					initialPrompt: "summarize this workspace",
+					model: "test-model",
+				},
+			},
+			createContext({ tabs }),
+		);
+
+		expect(addChatTab).toHaveBeenCalledWith("ws-1", {
+			launchConfig: {
+				initialPrompt: "summarize this workspace",
+				metadata: { model: "test-model" },
+			},
+		});
+		expect(switchChatSession).toHaveBeenCalledWith("chat-pane", sessionId);
+		expect(result).toMatchObject({
+			workspaceId: "ws-1",
+			tabId: "chat-tab",
+			paneId: "chat-pane",
+			sessionId,
+			status: "running",
+			error: null,
+		});
+	});
 });
