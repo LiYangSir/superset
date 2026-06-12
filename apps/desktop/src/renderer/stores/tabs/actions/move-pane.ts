@@ -107,6 +107,7 @@ export function movePaneToNewTab(
 
 	const workspaceId = sourceTab.workspaceId;
 	const newSourceLayout = removePaneFromLayout(sourceTab.layout, paneId);
+	const now = Date.now();
 	const newTabId = generateId("tab");
 	const workspaceTabs = state.tabs.filter((t) => t.workspaceId === workspaceId);
 
@@ -115,7 +116,8 @@ export function movePaneToNewTab(
 		name: generateTabName(workspaceTabs),
 		workspaceId,
 		layout: paneId as MosaicNode<string>,
-		createdAt: Date.now(),
+		createdAt: now,
+		lastActivityAt: now,
 	};
 
 	const newTabs = state.tabs.map((t) =>

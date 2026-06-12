@@ -314,6 +314,7 @@ export const createBrowserTabWithPane = (
 	existingTabs: Tab[] = [],
 	url?: string,
 ): { tab: Tab; pane: Pane } => {
+	const now = Date.now();
 	const tabId = generateId("tab");
 	const pane = createBrowserPane(tabId, url ? { url } : undefined);
 
@@ -326,7 +327,8 @@ export const createBrowserTabWithPane = (
 		name: `Browser ${workspaceTabs.filter((t) => t.name.startsWith("Browser")).length + 1}`,
 		workspaceId,
 		layout: pane.id,
-		createdAt: Date.now(),
+		createdAt: now,
+		lastActivityAt: now,
 	};
 
 	return { tab, pane };
@@ -336,6 +338,7 @@ export const createChatMastraTabWithPane = (
 	workspaceId: string,
 	options?: AddChatMastraTabOptions,
 ): { tab: Tab; pane: Pane } => {
+	const now = Date.now();
 	const tabId = generateId("tab");
 	const pane = createChatMastraPane(tabId, options);
 
@@ -344,7 +347,8 @@ export const createChatMastraTabWithPane = (
 		name: "New Chat",
 		workspaceId,
 		layout: pane.id,
-		createdAt: Date.now(),
+		createdAt: now,
+		lastActivityAt: now,
 	};
 
 	return { tab, pane };
@@ -379,6 +383,7 @@ export const createTabWithPane = (
 	existingTabs: Tab[] = [],
 	options?: CreatePaneOptions,
 ): { tab: Tab; pane: Pane } => {
+	const now = Date.now();
 	const tabId = generateId("tab");
 	const pane = createPane(tabId, "terminal", options);
 
@@ -392,7 +397,8 @@ export const createTabWithPane = (
 		name: generateTabName(workspaceTabs),
 		workspaceId,
 		layout: pane.id, // Single pane = leaf node
-		createdAt: Date.now(),
+		createdAt: now,
+		lastActivityAt: now,
 	};
 
 	return { tab, pane };

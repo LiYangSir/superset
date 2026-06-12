@@ -277,6 +277,23 @@ export const createDeleteProcedures = () => {
 							);
 						}
 					}
+				} else if (
+					workspace.type === "branch" &&
+					project &&
+					input.deleteLocalBranch &&
+					workspace.branch
+				) {
+					try {
+						await deleteLocalBranch({
+							mainRepoPath: project.mainRepoPath,
+							branch: workspace.branch,
+						});
+					} catch (error) {
+						console.error(
+							`[workspace/delete] Branch cleanup failed (non-blocking):`,
+							error instanceof Error ? error.message : String(error),
+						);
+					}
 				}
 
 				deleteWorkspace(input.id);

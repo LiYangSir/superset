@@ -46,7 +46,7 @@ export function DeleteWorkspaceDialog({
 
 	const { data: deleteLocalBranchDefault } =
 		electronTrpc.settings.getDeleteLocalBranch.useQuery(undefined, {
-			enabled: open && !isBranch,
+			enabled: open,
 		});
 	const [deleteLocalBranch, setDeleteLocalBranch] = useState<boolean | null>(
 		null,
@@ -135,54 +135,6 @@ export function DeleteWorkspaceDialog({
 	const hasUnpushedCommits = canDeleteData?.hasUnpushedCommits ?? false;
 	const hasWarnings = hasChanges || hasUnpushedCommits;
 
-	// For branch workspaces, use simplified dialog (only close option)
-	if (isBranch) {
-		return (
-			<AlertDialog open={open} onOpenChange={onOpenChange}>
-				<AlertDialogContent
-					className="max-w-[340px] gap-0 p-0"
-					onOpenAutoFocus={(event) => {
-						focusPrimaryDialogAction(event, closeActionButtonRef.current);
-					}}
-				>
-					<AlertDialogHeader className="px-4 pt-4 pb-2">
-						<AlertDialogTitle className="font-medium">
-							Close workspace "{workspaceName}"?
-						</AlertDialogTitle>
-						<AlertDialogDescription asChild>
-							<div className="text-muted-foreground space-y-1.5">
-								<span className="block">
-									This will close the workspace and kill any active terminals.
-									Your branch and commits will remain in the repository.
-								</span>
-							</div>
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-
-					<AlertDialogFooter className="px-4 pb-4 pt-2 flex-row justify-end gap-2">
-						<Button
-							variant="ghost"
-							size="sm"
-							className="h-7 px-3 text-xs"
-							onClick={() => onOpenChange(false)}
-						>
-							Cancel
-						</Button>
-						<Button
-							ref={closeActionButtonRef}
-							variant="secondary"
-							size="sm"
-							className="h-7 px-3 text-xs"
-							onClick={handleClose}
-						>
-							Close
-						</Button>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
-		);
-	}
-
 	return (
 		<AlertDialog open={open} onOpenChange={onOpenChange}>
 			<AlertDialogContent
@@ -201,6 +153,11 @@ export function DeleteWorkspaceDialog({
 								"Checking status..."
 							) : !canDelete ? (
 								<span className="text-destructive">{reason}</span>
+							) : isBranch ? (
+								<span className="block">
+									Hide will close this workspace. Delete removes the workspace
+									record and can optionally remove the local branch.
+								</span>
 							) : (
 								<span className="block">
 									Deleting will permanently remove the worktree. You can hide
@@ -259,7 +216,7 @@ export function DeleteWorkspaceDialog({
 						className="h-7 px-3 text-xs"
 						onClick={handleClose}
 					>
-						Hide
+						{isBranch ? "Close" : "Hide"}
 					</Button>
 					<Tooltip delayDuration={400}>
 						<TooltipTrigger asChild>
@@ -274,7 +231,9 @@ export function DeleteWorkspaceDialog({
 							</Button>
 						</TooltipTrigger>
 						<TooltipContent side="top" className="text-xs max-w-[200px]">
-							Permanently delete workspace and git worktree from disk.
+							{isBranch
+								? "Delete the workspace record. The local branch is deleted only when selected."
+								: "Permanently delete workspace and git worktree from disk."}
 						</TooltipContent>
 					</Tooltip>
 				</AlertDialogFooter>

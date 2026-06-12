@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { useWorkspaceShortcuts } from "renderer/hooks/useWorkspaceShortcuts";
+import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useWorkspaceSelectionStore } from "renderer/stores/workspace-selection";
 import { ActiveSpaceLabel } from "./ActiveSpaceLabel";
+import { MagicFilteredWorkspaceList } from "./MagicFilteredWorkspaceList";
 import { MultiDragPreview } from "./MultiDragPreview";
 import { PortsList } from "./PortsList";
 import { ProjectSection } from "./ProjectSection";
@@ -14,14 +16,21 @@ interface WorkspaceSidebarProps {
 	isCollapsed?: boolean;
 	activeProjectId: string | null;
 	activeProjectName: string | null;
+	isMagicPage?: boolean;
 }
 
 export function WorkspaceSidebar({
 	isCollapsed = false,
 	activeProjectId,
 	activeProjectName,
+	isMagicPage = false,
 }: WorkspaceSidebarProps) {
-	const { groups } = useWorkspaceShortcuts();
+	const { groups: activeSpaceGroups } = useWorkspaceShortcuts();
+	const { data: allGroups = [] } =
+		electronTrpc.workspaces.getAllGrouped.useQuery(undefined, {
+			enabled: isMagicPage,
+		});
+	const groups = isMagicPage ? allGroups : activeSpaceGroups;
 	const clearSelection = useWorkspaceSelectionStore((s) => s.clearSelection);
 
 	const projectShortcutIndices = useMemo(
@@ -79,32 +88,41 @@ export function WorkspaceSidebar({
 				className="flex-1 overflow-y-auto hide-scrollbar"
 				onMouseDown={handleSidebarMouseDown}
 			>
-				<ActiveSpaceLabel isCollapsed={isCollapsed} />
-				{groups.map((group, index) => (
-					<ProjectSection
-						key={group.project.id}
-						projectId={group.project.id}
-						projectName={group.project.name}
-						projectColor={group.project.color}
-						mainRepoPath={group.project.mainRepoPath}
-						hideImage={group.project.hideImage}
-						iconUrl={group.project.iconUrl}
-						workspaces={group.workspaces}
-						sections={group.sections ?? []}
-						topLevelItems={group.topLevelItems}
-						shortcutBaseIndex={projectShortcutIndices[index]}
-						index={index}
+				{isMagicPage ? (
+					<MagicFilteredWorkspaceList
+						groups={groups}
 						isCollapsed={isCollapsed}
 					/>
-				))}
+				) : (
+					<>
+						<ActiveSpaceLabel isCollapsed={isCollapsed} />
+						{groups.map((group, index) => (
+							<ProjectSection
+								key={group.project.id}
+								projectId={group.project.id}
+								projectName={group.project.name}
+								projectColor={group.project.color}
+								mainRepoPath={group.project.mainRepoPath}
+								hideImage={group.project.hideImage}
+								iconUrl={group.project.iconUrl}
+								workspaces={group.workspaces}
+								sections={group.sections ?? []}
+								topLevelItems={group.topLevelItems}
+								shortcutBaseIndex={projectShortcutIndices[index]}
+								index={index}
+								isCollapsed={isCollapsed}
+							/>
+						))}
 
-				{groups.length === 0 && !isCollapsed && (
-					<div className="flex flex-col items-center justify-center h-32 text-muted-foreground text-sm">
-						<span>No workspaces yet</span>
-						<span className="text-xs mt-1">
-							Add project or drag a Git repo folder here
-						</span>
-					</div>
+						{groups.length === 0 && !isCollapsed && (
+							<div className="flex flex-col items-center justify-center h-32 text-muted-foreground text-sm">
+								<span>No workspaces yet</span>
+								<span className="text-xs mt-1">
+									Add project or drag a Git repo folder here
+								</span>
+							</div>
+						)}
+					</>
 				)}
 			</div>
 

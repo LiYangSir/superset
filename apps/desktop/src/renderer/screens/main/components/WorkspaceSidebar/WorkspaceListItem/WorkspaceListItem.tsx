@@ -44,6 +44,11 @@ interface WorkspaceListItemProps {
 	sectionId?: string | null;
 	sections?: { id: string; name: string }[];
 	orderedWorkspaceIds?: string[];
+	projectName?: string;
+	preferBranchName?: boolean;
+	disableDnd?: boolean;
+	magicPage?: boolean;
+	activateTabIdOnOpen?: string | null;
 }
 
 export function WorkspaceListItem({
@@ -60,6 +65,11 @@ export function WorkspaceListItem({
 	sectionId = null,
 	sections = [],
 	orderedWorkspaceIds = [],
+	projectName,
+	preferBranchName = false,
+	disableDnd = false,
+	magicPage = false,
+	activateTabIdOnOpen = null,
 }: WorkspaceListItemProps) {
 	const isBranchWorkspace = type === "branch";
 	const navigate = useNavigate();
@@ -84,6 +94,7 @@ export function WorkspaceListItem({
 		(s) => s.clearWorkspaceAttentionStatus,
 	);
 	const resetWorkspaceStatus = useTabsStore((s) => s.resetWorkspaceStatus);
+	const setActiveTab = useTabsStore((s) => s.setActiveTab);
 	const utils = electronTrpc.useUtils();
 	const isSelected = useWorkspaceSelectionStore((s) => s.selectedIds.has(id));
 	const selectionStore = useWorkspaceSelectionStore;
@@ -92,11 +103,17 @@ export function WorkspaceListItem({
 			s.activeDragItem?.selectedIds?.includes(id) && s.activeDragItem.id !== id,
 	);
 
-	const isActive = !!matchRoute({
-		to: "/workspace/$workspaceId",
-		params: { workspaceId: id },
-		fuzzy: true,
-	});
+	const isActive =
+		!!matchRoute({
+			to: "/workspace/$workspaceId",
+			params: { workspaceId: id },
+			fuzzy: true,
+		}) ||
+		!!matchRoute({
+			to: "/magic/$workspaceId",
+			params: { workspaceId: id },
+			fuzzy: true,
+		});
 
 	const itemRef = useRef<HTMLElement | null>(null);
 	useEffect(() => {
@@ -174,12 +191,12 @@ export function WorkspaceListItem({
 	const handleClick = (e?: React.MouseEvent) => {
 		if (rename.isRenaming) return;
 
-		if (e?.metaKey) {
+		if (!disableDnd && e?.metaKey) {
 			selectionStore.getState().toggle(id, projectId);
 			return;
 		}
 
-		if (e?.shiftKey) {
+		if (!disableDnd && e?.shiftKey) {
 			const { lastClickedId } = selectionStore.getState();
 			if (lastClickedId) {
 				const lastIdx = orderedWorkspaceIds.indexOf(lastClickedId);
@@ -199,7 +216,24 @@ export function WorkspaceListItem({
 		selectionStore.getState().clearSelection();
 		selectionStore.setState({ lastClickedId: id });
 		clearWorkspaceAttentionStatus(id);
-		navigateToWorkspace(id, navigate);
+		if (activateTabIdOnOpen) {
+			setActiveTab(id, activateTabIdOnOpen);
+		}
+		if (magicPage) {
+			navigate({
+				to: "/magic/$workspaceId",
+				params: { workspaceId: id },
+				search: activateTabIdOnOpen ? { tabId: activateTabIdOnOpen } : {},
+			});
+			return;
+		}
+		navigateToWorkspace(
+			id,
+			navigate,
+			activateTabIdOnOpen
+				? { search: { tabId: activateTabIdOnOpen } }
+				: undefined,
+		);
 	};
 
 	const handleMouseEnter = () => {
@@ -228,13 +262,16 @@ export function WorkspaceListItem({
 			? { additions: pr.additions, deletions: pr.deletions }
 			: null);
 
-	const displayName =
-		type === "worktree"
+	const displayName = preferBranchName
+		? branch || name || "Unnamed"
+		: type === "worktree"
 			? branch || name || "Unnamed"
 			: name || branch || "Unnamed";
 	const showBranchSubtitle =
-		isBranchWorkspace || (!!name && !!branch && name !== branch);
-	const hasSubtitleRow = showBranchSubtitle || !!pr;
+		!preferBranchName &&
+		(isBranchWorkspace || (!!name && !!branch && name !== branch));
+	const showProjectSubtitle = !!projectName;
+	const hasSubtitleRow = showProjectSubtitle || showBranchSubtitle || !!pr;
 
 	if (isCollapsed) {
 		return (
@@ -264,7 +301,9 @@ export function WorkspaceListItem({
 			tabIndex={0}
 			ref={(node) => {
 				itemRef.current = node;
-				drag(drop(node));
+				if (!disableDnd) {
+					drag(drop(node));
+				}
 			}}
 			onClick={handleClick}
 			onKeyDown={(e) => {
@@ -280,17 +319,21 @@ export function WorkspaceListItem({
 				}
 			}}
 			onMouseEnter={handleMouseEnter}
-			onDoubleClick={isBranchWorkspace ? undefined : rename.startRename}
+			onDoubleClick={
+				isBranchWorkspace || disableDnd ? undefined : rename.startRename
+			}
 			className={cn(
 				"flex w-full pl-3 pr-2 text-sm",
 				"hover:bg-muted/50 transition-colors text-left cursor-pointer",
 				"group relative",
 				hasSubtitleRow ? "py-1.5" : "py-2 items-center",
 				isActive && "bg-muted",
-				isSelected && "bg-primary/10 ring-1 ring-inset ring-primary/30",
-				(isDragging || isMultiDragging) && "opacity-30",
+				!disableDnd &&
+					isSelected &&
+					"bg-primary/10 ring-1 ring-inset ring-primary/30",
+				!disableDnd && (isDragging || isMultiDragging) && "opacity-30",
 			)}
-			style={{ cursor: isDragging ? "grabbing" : "pointer" }}
+			style={{ cursor: !disableDnd && isDragging ? "grabbing" : "pointer" }}
 		>
 			{isActive && (
 				<div className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary rounded-r" />
@@ -359,7 +402,7 @@ export function WorkspaceListItem({
 										: "text-foreground/80",
 								)}
 							>
-								{isBranchWorkspace ? "local" : displayName}
+								{isBranchWorkspace && !preferBranchName ? "local" : displayName}
 							</span>
 
 							{tabCount > 0 && (
@@ -396,7 +439,7 @@ export function WorkspaceListItem({
 												⌘{shortcutIndex + 1}
 											</span>
 										)}
-									{!isBranchWorkspace && (
+									{(!isBranchWorkspace || disableDnd) && (
 										<Tooltip delayDuration={300}>
 											<TooltipTrigger asChild>
 												<button
@@ -420,8 +463,13 @@ export function WorkspaceListItem({
 							</div>
 						</div>
 
-						{(showBranchSubtitle || pr) && (
+						{(showProjectSubtitle || showBranchSubtitle || pr) && (
 							<div className="flex items-center gap-1.5 text-[11px] w-full">
+								{showProjectSubtitle && (
+									<span className="truncate leading-tight text-muted-foreground/70">
+										{projectName}
+									</span>
+								)}
 								{showBranchSubtitle && (
 									<span className="text-muted-foreground/60 truncate font-mono leading-tight">
 										{branch}

@@ -217,6 +217,7 @@ export interface BaseTab {
 	presetIconUrl?: string;
 	workspaceId: string;
 	createdAt: number;
+	lastActivityAt?: number;
 }
 
 /**

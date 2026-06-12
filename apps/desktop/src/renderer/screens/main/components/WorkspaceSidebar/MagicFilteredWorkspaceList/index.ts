@@ -1,0 +1,1 @@
+export { MagicFilteredWorkspaceList } from "./MagicFilteredWorkspaceList";

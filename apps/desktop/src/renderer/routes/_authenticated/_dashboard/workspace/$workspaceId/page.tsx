@@ -76,6 +76,35 @@ export const Route = createFileRoute(
 
 function WorkspacePage() {
 	const { workspaceId } = Route.useParams();
+	const routeNavigate = Route.useNavigate();
+	const { tabId: searchTabId, paneId: searchPaneId } = Route.useSearch();
+	const clearSearch = useCallback(() => {
+		routeNavigate({ search: {}, replace: true });
+	}, [routeNavigate]);
+
+	return (
+		<WorkspaceRouteContent
+			workspaceId={workspaceId}
+			searchTabId={searchTabId}
+			searchPaneId={searchPaneId}
+			onClearSearch={clearSearch}
+		/>
+	);
+}
+
+interface WorkspaceRouteContentProps {
+	workspaceId: string;
+	searchTabId?: string;
+	searchPaneId?: string;
+	onClearSearch: () => void;
+}
+
+export function WorkspaceRouteContent({
+	workspaceId,
+	searchTabId,
+	searchPaneId,
+	onClearSearch,
+}: WorkspaceRouteContentProps) {
 	const { data: workspace } = electronTrpc.workspaces.get.useQuery({
 		id: workspaceId,
 	});
@@ -86,8 +115,6 @@ function WorkspacePage() {
 		enabled: Boolean(workspace?.worktreePath),
 	});
 	const navigate = useNavigate();
-	const routeNavigate = Route.useNavigate();
-	const { tabId: searchTabId, paneId: searchPaneId } = Route.useSearch();
 
 	// Keep the file open mode cache warm for addFileViewerPane
 	useFileOpenMode();
@@ -108,8 +135,8 @@ function WorkspacePage() {
 			state.setFocusedPane(searchTabId, searchPaneId);
 		}
 
-		routeNavigate({ search: {}, replace: true });
-	}, [searchTabId, searchPaneId, workspaceId, routeNavigate]);
+		onClearSearch();
+	}, [searchTabId, searchPaneId, workspaceId, onClearSearch]);
 
 	// Check if workspace is initializing or failed
 	const isInitializing = useIsWorkspaceInitializing(workspaceId);

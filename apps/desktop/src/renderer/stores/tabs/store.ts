@@ -207,6 +207,7 @@ export const useTabsStore = create<TabsStore>()(
 					options: AddTabWithMultiplePanesOptions,
 				) => {
 					const state = get();
+					const now = Date.now();
 					const tabId = generateId("tab");
 					const panes: ReturnType<typeof createPane>[] = options.commands.map(
 						(command) =>
@@ -227,7 +228,8 @@ export const useTabsStore = create<TabsStore>()(
 						name: generateTabName(workspaceTabs),
 						workspaceId,
 						layout,
-						createdAt: Date.now(),
+						createdAt: now,
+						lastActivityAt: now,
 					};
 
 					const panesRecord: Record<string, (typeof panes)[number]> = {};
@@ -823,6 +825,7 @@ export const useTabsStore = create<TabsStore>()(
 					// No reusable pane found, create a new one
 					if (options.openInNewTab) {
 						const workspaceId = activeTab.workspaceId;
+						const now = Date.now();
 						const newTabId = generateId("tab");
 						const newPane = createFileViewerPane(newTabId, options);
 
@@ -831,7 +834,8 @@ export const useTabsStore = create<TabsStore>()(
 							workspaceId,
 							name: newPane.name,
 							layout: newPane.id as MosaicNode<string>,
-							createdAt: Date.now(),
+							createdAt: now,
+							lastActivityAt: now,
 						};
 
 						const currentActiveId = state.activeTabIds[workspaceId];
@@ -1014,12 +1018,16 @@ export const useTabsStore = create<TabsStore>()(
 					const state = get();
 					const pane = state.panes[paneId];
 					if (!pane || pane.status === status) return;
+					const now = Date.now();
 
 					set({
 						panes: {
 							...state.panes,
 							[paneId]: { ...pane, status },
 						},
+						tabs: state.tabs.map((tab) =>
+							tab.id === pane.tabId ? { ...tab, lastActivityAt: now } : tab,
+						),
 					});
 				},
 

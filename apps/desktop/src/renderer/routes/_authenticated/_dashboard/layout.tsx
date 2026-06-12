@@ -27,6 +27,41 @@ export const Route = createFileRoute("/_authenticated/_dashboard")({
 	component: DashboardLayout,
 });
 
+type SpaceItem = {
+	id: string;
+};
+
+type SpaceWorkspaceGroup = {
+	project: {
+		spaceId?: string | null;
+	};
+	workspaces: {
+		id: string;
+	}[];
+	sections?: {
+		workspaces: {
+			id: string;
+		}[];
+	}[];
+};
+
+function getFirstWorkspaceInSpace(
+	groups: SpaceWorkspaceGroup[],
+	spaceId: string,
+): string | null {
+	const group = groups.find(
+		(candidate) => candidate.project.spaceId === spaceId,
+	);
+	if (!group) return null;
+
+	return (
+		group.workspaces[0]?.id ??
+		group.sections?.find((section) => section.workspaces.length > 0)
+			?.workspaces[0]?.id ??
+		null
+	);
+}
+
 function DashboardLayout() {
 	const navigate = useNavigate();
 	const openNewWorkspaceModal = useOpenNewWorkspaceModal();
@@ -34,12 +69,21 @@ function DashboardLayout() {
 	const setActiveSpaceId = useSetActiveSpaceId();
 	// Get current workspace from route to pre-select project in new workspace modal
 	const matchRoute = useMatchRoute();
-	const currentWorkspaceMatch = matchRoute({
+	const isMagicPage = !!matchRoute({ to: "/magic", fuzzy: true });
+	const workspaceMatch = matchRoute({
 		to: "/workspace/$workspaceId",
 		fuzzy: true,
 	});
+	const magicWorkspaceMatch = matchRoute({
+		to: "/magic/$workspaceId",
+		fuzzy: true,
+	});
 	const currentWorkspaceId =
-		currentWorkspaceMatch !== false ? currentWorkspaceMatch.workspaceId : null;
+		workspaceMatch !== false
+			? workspaceMatch.workspaceId
+			: magicWorkspaceMatch !== false
+				? magicWorkspaceMatch.workspaceId
+				: null;
 
 	const { data: currentWorkspace } = electronTrpc.workspaces.get.useQuery(
 		{ id: currentWorkspaceId ?? "" },
@@ -48,32 +92,67 @@ function DashboardLayout() {
 
 	const prevWorkspaceSpaceIdRef = useRef<string | null>(null);
 	useEffect(() => {
+		if (isMagicPage) return;
 		const workspaceSpaceId = currentWorkspace?.project?.spaceId;
 		if (!workspaceSpaceId) return;
 		if (workspaceSpaceId === prevWorkspaceSpaceIdRef.current) return;
 		prevWorkspaceSpaceIdRef.current = workspaceSpaceId;
 		setActiveSpaceId(workspaceSpaceId);
-	}, [currentWorkspace?.project?.spaceId, setActiveSpaceId]);
+	}, [currentWorkspace?.project?.spaceId, isMagicPage, setActiveSpaceId]);
 
 	// Space switching: fetch spaces list and grouped workspaces for active space
-	const { data: spaces = [] } = electronTrpc.spaces.list.useQuery();
+	const { data: spacesData = [] } = electronTrpc.spaces.list.useQuery();
+	const spaces = spacesData as SpaceItem[];
 	const { data: spaceGroups } = electronTrpc.workspaces.getAllGrouped.useQuery(
 		activeSpaceId ? { spaceId: activeSpaceId } : undefined,
 		{ enabled: !!activeSpaceId },
 	);
+	const { data: allGroupsForMagic = [] } =
+		electronTrpc.workspaces.getAllGrouped.useQuery(undefined, {
+			enabled: isMagicPage,
+		});
 
 	const switchSpace = useCallback(
 		(direction: "prev" | "next") => {
-			if (spaces.length < 2) return;
-			const currentIndex = spaces.findIndex((s) => s.id === activeSpaceId);
+			const itemCount = spaces.length + 1;
+			if (itemCount < 2) return;
+			const currentSpaceIndex = spaces.findIndex((s) => s.id === activeSpaceId);
+			const currentIndex = isMagicPage
+				? 0
+				: currentSpaceIndex === -1
+					? 1
+					: currentSpaceIndex + 1;
 			const idx = currentIndex === -1 ? 0 : currentIndex;
 			const newIndex =
 				direction === "prev"
-					? (idx - 1 + spaces.length) % spaces.length
-					: (idx + 1) % spaces.length;
-			setActiveSpaceId(spaces[newIndex].id);
+					? (idx - 1 + itemCount) % itemCount
+					: (idx + 1) % itemCount;
+			if (newIndex === 0) {
+				navigate({ to: "/magic" });
+				return;
+			}
+			const targetSpace = spaces[newIndex - 1];
+			setActiveSpaceId(targetSpace.id);
+			if (isMagicPage) {
+				const targetWorkspaceId = getFirstWorkspaceInSpace(
+					allGroupsForMagic as SpaceWorkspaceGroup[],
+					targetSpace.id,
+				);
+				if (targetWorkspaceId) {
+					navigateToWorkspace(targetWorkspaceId, navigate);
+				} else {
+					navigate({ to: "/workspace" });
+				}
+			}
 		},
-		[spaces, activeSpaceId, setActiveSpaceId],
+		[
+			activeSpaceId,
+			allGroupsForMagic,
+			isMagicPage,
+			navigate,
+			setActiveSpaceId,
+			spaces,
+		],
 	);
 
 	// When active space changes and current workspace doesn't belong to it, navigate to first workspace in new space
@@ -85,6 +164,7 @@ function DashboardLayout() {
 		}
 		prevSpaceIdRef.current = activeSpaceId;
 
+		if (isMagicPage) return;
 		if (!spaceGroups || spaceGroups.length === 0) return;
 
 		const currentBelongsToSpace =
@@ -97,6 +177,7 @@ function DashboardLayout() {
 		}
 	}, [
 		activeSpaceId,
+		isMagicPage,
 		spaceGroups,
 		currentWorkspace?.project?.spaceId,
 		navigate,
@@ -181,6 +262,7 @@ function DashboardLayout() {
 							isCollapsed={isWorkspaceSidebarCollapsed()}
 							activeProjectId={currentWorkspace?.projectId ?? null}
 							activeProjectName={currentWorkspace?.project?.name ?? null}
+							isMagicPage={isMagicPage}
 						/>
 					</ResizablePanel>
 				)}
