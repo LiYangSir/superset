@@ -21,4 +21,16 @@ describe("getNotifyScriptContent", () => {
 			"event=$EVENT_TYPE userMessage=$USER_MESSAGE sessionId=$SESSION_ID hookSessionId=$HOOK_SESSION_ID resourceId=$RESOURCE_ID",
 		);
 	});
+
+	it("captures tool input for any tool and forwards toolPhase", () => {
+		const script = readFileSync(
+			path.join(import.meta.dir, "templates", "notify-hook.template.sh"),
+			"utf-8",
+		);
+
+		expect(script).toContain('--data-urlencode "toolPhase=$TOOL_PHASE"');
+		expect(script).toContain("PreToolUse|preToolUse");
+		expect(script).toContain("PostToolUse|postToolUse|AfterTool");
+		expect(script).toContain("jq -c '.tool_input // .toolInput // empty'");
+	});
 });

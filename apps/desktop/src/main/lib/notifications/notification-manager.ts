@@ -55,7 +55,13 @@ export class NotificationManager {
 	}
 
 	handleAgentLifecycle(event: AgentLifecycleEvent): void {
-		if (event.eventType === "Start") return;
+		if (
+			event.eventType === "Start" ||
+			event.eventType === "ToolUse" ||
+			event.eventType === "ToolStart" ||
+			event.eventType === "UserPrompt"
+		)
+			return;
 		if (!this.deps.isSupported()) return;
 
 		if (this.shouldSuppressForVisiblePane(event)) return;

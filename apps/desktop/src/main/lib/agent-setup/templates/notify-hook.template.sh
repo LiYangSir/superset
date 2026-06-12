@@ -43,16 +43,31 @@ if [ "$EVENT_TYPE" = "UserPromptSubmit" ] || [ "$EVENT_TYPE" = "userPromptSubmit
   USER_MESSAGE=$(echo "$INPUT" | grep -oE '"prompt"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/^"prompt"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//' | cut -c1-500)
 fi
 
-# Extract tool_name and tool_input for PostToolUse events (task/subagent tracking)
+# Extract tool_name and tool_input for tool lifecycle events (TodoWrite, Task, etc.)
 TOOL_NAME=""
 TOOL_INPUT=""
-if [ "$EVENT_TYPE" = "PostToolUse" ] || [ "$EVENT_TYPE" = "PostToolUseFailure" ]; then
-  TOOL_NAME=$(echo "$INPUT" | grep -oE '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -oE '"[^"]*"$' | tr -d '"')
-  case "$TOOL_NAME" in
-    TaskCreate|TaskUpdate|TaskGet|TaskList)
-      TOOL_INPUT=$(echo "$INPUT" | grep -oE '"tool_result"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/^"tool_result"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//' | cut -c1-1000)
-      ;;
-  esac
+TOOL_PHASE=""
+case "$EVENT_TYPE" in
+  PreToolUse|preToolUse)
+    TOOL_PHASE="pre"
+    ;;
+  PostToolUse|postToolUse|AfterTool)
+    TOOL_PHASE="post"
+    ;;
+  PostToolUseFailure)
+    TOOL_PHASE="post-failure"
+    ;;
+esac
+
+if [ -n "$TOOL_PHASE" ]; then
+  if command -v jq >/dev/null 2>&1; then
+    TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // .toolName // empty' 2>/dev/null)
+    TOOL_INPUT=$(echo "$INPUT" | jq -c '.tool_input // .toolInput // empty' 2>/dev/null | cut -c1-4096)
+  else
+    TOOL_NAME=$(echo "$INPUT" | grep -oE '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -oE '"[^"]*"$' | tr -d '"')
+    # Best-effort grep extraction of tool_input object — may be truncated for nested objects
+    TOOL_INPUT=$(echo "$INPUT" | sed -n 's/.*"tool_input"[[:space:]]*:[[:space:]]*\({[^}]*}\).*/\1/p' | cut -c1-4096)
+  fi
 fi
 
 # If no event type was found, skip the notification
@@ -93,6 +108,7 @@ if [ "$DEBUG_HOOKS_ENABLED" = "1" ]; then
     --data-urlencode "userMessage=$USER_MESSAGE" \
     --data-urlencode "toolName=$TOOL_NAME" \
     --data-urlencode "toolInput=$TOOL_INPUT" \
+    --data-urlencode "toolPhase=$TOOL_PHASE" \
     -o /dev/null -w "%{http_code}" 2>/dev/null)
   echo "[notify-hook] dispatched status=$STATUS_CODE" >&2
 else
@@ -110,6 +126,7 @@ else
     --data-urlencode "userMessage=$USER_MESSAGE" \
     --data-urlencode "toolName=$TOOL_NAME" \
     --data-urlencode "toolInput=$TOOL_INPUT" \
+    --data-urlencode "toolPhase=$TOOL_PHASE" \
     > /dev/null 2>&1
 fi
 

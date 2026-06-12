@@ -1,13 +1,15 @@
-export function mapEventType(
-	eventType: string | undefined,
-):
+export type MappedEventType =
 	| "Start"
 	| "Stop"
 	| "PermissionRequest"
 	| "SessionEnd"
 	| "UserPrompt"
 	| "ToolUse"
-	| null {
+	| "ToolStart";
+
+export function mapEventType(
+	eventType: string | undefined,
+): MappedEventType | null {
 	if (!eventType) {
 		return null;
 	}
@@ -17,20 +19,23 @@ export function mapEventType(
 	if (
 		eventType === "Start" ||
 		eventType === "SessionStart" ||
-		eventType === "PostToolUse" ||
-		eventType === "PostToolUseFailure" ||
 		eventType === "BeforeAgent" ||
-		eventType === "AfterTool" ||
-		eventType === "sessionStart" ||
-		eventType === "postToolUse"
+		eventType === "sessionStart"
 	) {
 		return "Start";
 	}
 	if (
-		eventType === "PermissionRequest" ||
-		eventType === "Notification" ||
-		eventType === "preToolUse"
+		eventType === "PostToolUse" ||
+		eventType === "PostToolUseFailure" ||
+		eventType === "AfterTool" ||
+		eventType === "postToolUse"
 	) {
+		return "ToolUse";
+	}
+	if (eventType === "PreToolUse" || eventType === "preToolUse") {
+		return "ToolStart";
+	}
+	if (eventType === "PermissionRequest" || eventType === "Notification") {
 		return "PermissionRequest";
 	}
 	if (eventType === "SessionEnd" || eventType === "sessionEnd") {

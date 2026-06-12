@@ -1,1 +1,5 @@
-export { ActivityCard, formatDuration, formatRelativeTime } from "./ActivityCard";
+export {
+	ActivityCard,
+	formatDuration,
+	formatRelativeTime,
+} from "./ActivityCard";

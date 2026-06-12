@@ -117,6 +117,7 @@ app.get("/hook/complete", (req, res) => {
 		userMessage,
 		toolName,
 		toolInput,
+		toolPhase: explicitToolPhase,
 	} = req.query;
 
 	// Environment validation: log mismatch but still process the request
@@ -153,27 +154,32 @@ app.get("/hook/complete", (req, res) => {
 		sessionId as string | undefined,
 	);
 
-	const TASK_TOOLS = new Set([
-		"TaskCreate",
-		"TaskUpdate",
-		"TaskGet",
-		"TaskList",
-	]);
-	const resolvedEventType =
-		toolName &&
-		TASK_TOOLS.has(toolName as string) &&
-		mappedEventType === "Start"
-			? ("ToolUse" as const)
-			: mappedEventType;
+	const rawEventType = (eventType as string | undefined) ?? "";
+	let derivedToolPhase: "pre" | "post" | "post-failure" | undefined;
+	if (rawEventType === "PreToolUse" || rawEventType === "preToolUse") {
+		derivedToolPhase = "pre";
+	} else if (rawEventType === "PostToolUseFailure") {
+		derivedToolPhase = "post-failure";
+	} else if (
+		rawEventType === "PostToolUse" ||
+		rawEventType === "postToolUse" ||
+		rawEventType === "AfterTool"
+	) {
+		derivedToolPhase = "post";
+	}
+	const toolPhase =
+		(explicitToolPhase as "pre" | "post" | "post-failure" | undefined) ??
+		derivedToolPhase;
 
 	const event: AgentLifecycleEvent = {
 		paneId: resolvedPaneId,
 		tabId: tabId as string | undefined,
 		workspaceId: workspaceId as string | undefined,
-		eventType: resolvedEventType,
+		eventType: mappedEventType,
 		...(userMessage ? { userMessage: userMessage as string } : {}),
 		...(toolName ? { toolName: toolName as string } : {}),
 		...(toolInput ? { toolInput: toolInput as string } : {}),
+		...(toolPhase ? { toolPhase } : {}),
 	};
 
 	if (DEBUG_HOOKS_ENABLED) {

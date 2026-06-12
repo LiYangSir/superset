@@ -660,10 +660,7 @@ export const memoryPolicies = sqliteTable(
 			.notNull()
 			.$type<PolicyExperienceType>()
 			.default("preference"),
-		status: text("status")
-			.notNull()
-			.$type<PolicyStatus>()
-			.default("candidate"),
+		status: text("status").notNull().$type<PolicyStatus>().default("candidate"),
 		support: integer("support").notNull().default(1),
 		gain: real("gain"),
 		decisionGuidance: text("decision_guidance"),
@@ -711,9 +708,7 @@ export const memoryWorldModels = sqliteTable(
 		projectId: text("project_id").references(() => projects.id, {
 			onDelete: "cascade",
 		}),
-		modelType: text("model_type")
-			.notNull()
-			.$type<WorldModelType>(),
+		modelType: text("model_type").notNull().$type<WorldModelType>(),
 		content: text("content").notNull(),
 		confidence: real("confidence").notNull().default(0.5),
 		domainTags: text("domain_tags", { mode: "json" }).$type<string[]>(),
@@ -798,7 +793,11 @@ export type SelectMemorySkill = typeof memorySkills.$inferSelect;
 // Agent Activities - tracks agent lifecycle events per workspace/branch
 // =============================================================================
 
-export type AgentActivityStatus = "in_progress" | "completed" | "failed";
+export type AgentActivityStatus =
+	| "in_progress"
+	| "waiting_for_input"
+	| "completed"
+	| "failed";
 
 export const agentActivities = sqliteTable(
 	"agent_activities",

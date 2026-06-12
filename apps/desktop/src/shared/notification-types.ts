@@ -9,6 +9,8 @@ export interface NotificationIds {
 	workspaceId?: string;
 }
 
+export type AgentToolPhase = "pre" | "post" | "post-failure";
+
 export interface AgentLifecycleEvent extends NotificationIds {
 	eventType:
 		| "Start"
@@ -16,8 +18,10 @@ export interface AgentLifecycleEvent extends NotificationIds {
 		| "PermissionRequest"
 		| "SessionEnd"
 		| "UserPrompt"
-		| "ToolUse";
+		| "ToolUse"
+		| "ToolStart";
 	userMessage?: string;
 	toolName?: string;
 	toolInput?: string;
+	toolPhase?: AgentToolPhase;
 }

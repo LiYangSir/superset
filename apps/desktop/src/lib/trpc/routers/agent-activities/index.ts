@@ -1,8 +1,10 @@
+import { EventEmitter } from "node:events";
 import {
 	agentActivities,
 	projects,
 	type SelectAgentActivity,
 } from "@superset/local-db";
+import { observable } from "@trpc/server/observable";
 import { and, desc, eq, gte, inArray, isNull, not } from "drizzle-orm";
 import { localDb } from "main/lib/local-db";
 import { z } from "zod";
@@ -14,6 +16,30 @@ import {
 	stripMarkdownFences,
 } from "../utils/ai-cli";
 import { getWorkspaceWithRelations } from "../workspaces/utils/db-helpers";
+
+export interface ActivityUpdateEvent {
+	type: "create" | "update" | "complete" | "archive";
+	activityId: string;
+	workspaceId: string;
+	projectId: string | null;
+}
+
+const activityEmitter = new EventEmitter();
+activityEmitter.setMaxListeners(0);
+
+const ACTIVITY_UPDATE_EVENT = "activity-update";
+
+function emitActivityUpdate(event: ActivityUpdateEvent) {
+	activityEmitter.emit(ACTIVITY_UPDATE_EVENT, event);
+}
+
+function fingerprintTodo(content: string): string {
+	let hash = 0;
+	for (let i = 0; i < content.length; i++) {
+		hash = (hash * 31 + content.charCodeAt(i)) | 0;
+	}
+	return `t_${(hash >>> 0).toString(36)}`;
+}
 
 export const createAgentActivitiesRouter = () => {
 	return router({
@@ -138,6 +164,13 @@ export const createAgentActivitiesRouter = () => {
 							.where(eq(agentActivities.id, existing.id))
 							.run();
 
+						emitActivityUpdate({
+							type: "update",
+							activityId: existing.id,
+							workspaceId: existing.workspaceId,
+							projectId: existing.projectId,
+						});
+
 						return {
 							success: true,
 							activity: { ...existing, updatedAt: now },
@@ -166,6 +199,13 @@ export const createAgentActivitiesRouter = () => {
 					})
 					.returning()
 					.get();
+
+				emitActivityUpdate({
+					type: "create",
+					activityId: row.id,
+					workspaceId: row.workspaceId,
+					projectId: row.projectId,
+				});
 
 				return { success: true, activity: row };
 			}),
@@ -219,6 +259,13 @@ export const createAgentActivitiesRouter = () => {
 					.where(eq(agentActivities.id, activity.id))
 					.run();
 
+				emitActivityUpdate({
+					type: "complete",
+					activityId: activity.id,
+					workspaceId: activity.workspaceId,
+					projectId: activity.projectId,
+				});
+
 				summarizeActivityAsync(
 					activity.id,
 					input.workspaceId ?? activity.workspaceId,
@@ -254,11 +301,25 @@ export const createAgentActivitiesRouter = () => {
 		archive: publicProcedure
 			.input(z.object({ id: z.string() }))
 			.mutation(({ input }) => {
+				const existing = localDb
+					.select()
+					.from(agentActivities)
+					.where(eq(agentActivities.id, input.id))
+					.get() as SelectAgentActivity | undefined;
+				if (!existing) {
+					return { success: false, reason: "not_found" as const };
+				}
 				localDb
 					.update(agentActivities)
 					.set({ archivedAt: Date.now(), updatedAt: Date.now() })
 					.where(eq(agentActivities.id, input.id))
 					.run();
+				emitActivityUpdate({
+					type: "archive",
+					activityId: existing.id,
+					workspaceId: existing.workspaceId,
+					projectId: existing.projectId,
+				});
 				return { success: true };
 			}),
 
@@ -285,6 +346,12 @@ export const createAgentActivitiesRouter = () => {
 					.set({ archivedAt: Date.now(), updatedAt: Date.now() })
 					.where(and(...conditions))
 					.run();
+				emitActivityUpdate({
+					type: "archive",
+					activityId: "*",
+					workspaceId: input.workspaceId ?? "*",
+					projectId: input.projectId ?? null,
+				});
 				return { success: true };
 			}),
 
@@ -296,6 +363,51 @@ export const createAgentActivitiesRouter = () => {
 					.set({ archivedAt: null, updatedAt: Date.now() })
 					.where(eq(agentActivities.id, input.id))
 					.run();
+				return { success: true };
+			}),
+
+		setStatus: publicProcedure
+			.input(
+				z.object({
+					paneId: z.string(),
+					workspaceId: z.string(),
+					status: z.enum(["in_progress", "waiting_for_input"]),
+				}),
+			)
+			.mutation(({ input }) => {
+				const activity = localDb
+					.select()
+					.from(agentActivities)
+					.where(
+						and(
+							eq(agentActivities.paneId, input.paneId),
+							not(eq(agentActivities.status, "completed")),
+							not(eq(agentActivities.status, "failed")),
+						),
+					)
+					.orderBy(desc(agentActivities.startedAt))
+					.get() as SelectAgentActivity | undefined;
+
+				if (!activity) {
+					return { success: false, reason: "no_active_activity" as const };
+				}
+				if (activity.status === input.status) {
+					return { success: true };
+				}
+
+				localDb
+					.update(agentActivities)
+					.set({ status: input.status, updatedAt: Date.now() })
+					.where(eq(agentActivities.id, activity.id))
+					.run();
+
+				emitActivityUpdate({
+					type: "update",
+					activityId: activity.id,
+					workspaceId: activity.workspaceId,
+					projectId: activity.projectId,
+				});
+
 				return { success: true };
 			}),
 
@@ -335,6 +447,7 @@ export const createAgentActivitiesRouter = () => {
 					workspaceId: z.string(),
 					toolName: z.string(),
 					toolInput: z.string(),
+					toolPhase: z.enum(["pre", "post", "post-failure"]).optional(),
 				}),
 			)
 			.mutation(({ input }) => {
@@ -355,45 +468,22 @@ export const createAgentActivitiesRouter = () => {
 				}
 
 				const metadata = parseMetadata(activity.metadata);
+				const phase = input.toolPhase ?? "post";
+				const parsed = safeParseToolInput(input.toolInput);
 
-				if (input.toolName === "TaskCreate") {
-					const result = safeParseToolResult(input.toolInput);
-					if (result?.subject) {
-						const task = {
-							id: result.taskId || String(Date.now()),
-							subject: result.subject,
-							status: "pending" as const,
-							description: result.description,
+				if (input.toolName === "TodoWrite" && phase === "post") {
+					applyTodoWrite(metadata, parsed);
+				} else if (input.toolName === "Task") {
+					applyTaskTool(metadata, parsed, phase);
+				} else if (phase === "post" || phase === "post-failure") {
+					metadata.toolCount = (metadata.toolCount ?? 0) + 1;
+					metadata.lastTool = input.toolName;
+					if (phase === "post-failure") {
+						metadata.lastFailure = {
+							toolName: input.toolName,
+							summary: summarizeToolInput(parsed, input.toolInput),
+							at: Date.now(),
 						};
-						metadata.tasks = metadata.tasks || [];
-						const existingIdx = metadata.tasks.findIndex(
-							(t) => t.id === task.id,
-						);
-						if (existingIdx >= 0) {
-							metadata.tasks[existingIdx] = task;
-						} else {
-							metadata.tasks.push(task);
-						}
-					}
-				} else if (input.toolName === "TaskUpdate") {
-					const result = safeParseToolResult(input.toolInput);
-					if (result?.taskId && metadata.tasks) {
-						const task = metadata.tasks.find((t) => t.id === result.taskId);
-						if (task) {
-							if (result.status) task.status = result.status;
-							if (result.subject) task.subject = result.subject;
-						}
-					}
-				} else if (input.toolName === "Agent") {
-					const result = safeParseToolResult(input.toolInput);
-					if (result?.description) {
-						metadata.subagents = metadata.subagents || [];
-						metadata.subagents.push({
-							id: String(Date.now()),
-							description: result.description,
-							status: "in_progress",
-							startedAt: Date.now(),
-						});
 					}
 				}
 
@@ -405,6 +495,13 @@ export const createAgentActivitiesRouter = () => {
 					})
 					.where(eq(agentActivities.id, activity.id))
 					.run();
+
+				emitActivityUpdate({
+					type: "update",
+					activityId: activity.id,
+					workspaceId: activity.workspaceId,
+					projectId: activity.projectId,
+				});
 
 				return { success: true };
 			}),
@@ -531,6 +628,33 @@ Generate the weekly report now. Use Chinese. Output markdown only, no extra comm
 					return { success: false, reason: "exception" as const, report: null };
 				}
 			}),
+
+		subscribeUpdates: publicProcedure
+			.input(
+				z
+					.object({
+						workspaceId: z.string().optional(),
+					})
+					.optional(),
+			)
+			.subscription(({ input }) => {
+				return observable<ActivityUpdateEvent>((emit) => {
+					const handler = (event: ActivityUpdateEvent) => {
+						if (
+							input?.workspaceId &&
+							event.workspaceId !== "*" &&
+							event.workspaceId !== input.workspaceId
+						) {
+							return;
+						}
+						emit.next(event);
+					};
+					activityEmitter.on(ACTIVITY_UPDATE_EVENT, handler);
+					return () => {
+						activityEmitter.off(ACTIVITY_UPDATE_EVENT, handler);
+					};
+				});
+			}),
 	});
 };
 
@@ -584,16 +708,25 @@ interface ActivityMetadata {
 	tasks?: Array<{
 		id: string;
 		subject: string;
-		status: string;
+		status: "pending" | "in_progress" | "completed";
 		description?: string;
 	}>;
 	subagents?: Array<{
 		id: string;
 		description?: string;
-		status: string;
+		subagentType?: string;
+		status: "in_progress" | "completed" | "failed";
 		startedAt: number;
 		endedAt?: number;
 	}>;
+	activeTaskId?: string;
+	toolCount?: number;
+	lastTool?: string;
+	lastFailure?: {
+		toolName: string;
+		summary: string;
+		at: number;
+	};
 }
 
 function parseMetadata(raw: string | null | undefined): ActivityMetadata {
@@ -605,12 +738,146 @@ function parseMetadata(raw: string | null | undefined): ActivityMetadata {
 	}
 }
 
-function safeParseToolResult(
-	raw: string,
-): Record<string, string | undefined> | null {
+function safeParseToolInput(raw: string): unknown {
+	if (!raw) return null;
 	try {
 		return JSON.parse(raw);
 	} catch {
 		return null;
 	}
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function applyTodoWrite(metadata: ActivityMetadata, parsed: unknown): void {
+	if (!isRecord(parsed)) return;
+	const todos = parsed.todos;
+	if (!Array.isArray(todos)) return;
+
+	const previousById = new Map(
+		(metadata.tasks ?? []).map((task) => [task.id, task]),
+	);
+
+	const next: NonNullable<ActivityMetadata["tasks"]> = [];
+	let activeTaskId: string | undefined;
+
+	for (const raw of todos) {
+		if (!isRecord(raw)) continue;
+		const content =
+			typeof raw.content === "string"
+				? raw.content
+				: typeof raw.activeForm === "string"
+					? raw.activeForm
+					: "";
+		if (!content) continue;
+		const id = fingerprintTodo(content);
+		const status = normalizeTodoStatus(raw.status);
+		const subject =
+			typeof raw.activeForm === "string" && status === "in_progress"
+				? raw.activeForm
+				: content;
+		const description =
+			typeof raw.description === "string" ? raw.description : undefined;
+
+		const previous = previousById.get(id);
+		next.push({
+			id,
+			subject,
+			status,
+			description: description ?? previous?.description,
+		});
+		if (status === "in_progress" && !activeTaskId) {
+			activeTaskId = id;
+		}
+	}
+
+	metadata.tasks = next;
+	metadata.activeTaskId = activeTaskId;
+}
+
+function normalizeTodoStatus(
+	raw: unknown,
+): "pending" | "in_progress" | "completed" {
+	if (raw === "completed" || raw === "done") return "completed";
+	if (raw === "in_progress" || raw === "active" || raw === "running") {
+		return "in_progress";
+	}
+	return "pending";
+}
+
+function applyTaskTool(
+	metadata: ActivityMetadata,
+	parsed: unknown,
+	phase: "pre" | "post" | "post-failure",
+): void {
+	if (!isRecord(parsed)) return;
+	const description =
+		typeof parsed.description === "string" ? parsed.description : undefined;
+	const subagentType =
+		typeof parsed.subagent_type === "string"
+			? parsed.subagent_type
+			: typeof parsed.subagentType === "string"
+				? parsed.subagentType
+				: undefined;
+	if (!description && !subagentType) return;
+
+	metadata.subagents = metadata.subagents ?? [];
+
+	if (phase === "pre") {
+		metadata.subagents.push({
+			id: `sa_${Date.now()}_${metadata.subagents.length}`,
+			description,
+			subagentType,
+			status: "in_progress",
+			startedAt: Date.now(),
+		});
+		return;
+	}
+
+	const target = [...metadata.subagents]
+		.reverse()
+		.find(
+			(sa) =>
+				sa.status === "in_progress" &&
+				sa.description === description &&
+				(subagentType ? sa.subagentType === subagentType : true),
+		);
+
+	if (target) {
+		target.status = phase === "post-failure" ? "failed" : "completed";
+		target.endedAt = Date.now();
+	} else {
+		metadata.subagents.push({
+			id: `sa_${Date.now()}_${metadata.subagents.length}`,
+			description,
+			subagentType,
+			status: phase === "post-failure" ? "failed" : "completed",
+			startedAt: Date.now(),
+			endedAt: Date.now(),
+		});
+	}
+}
+
+function summarizeToolInput(parsed: unknown, raw: string): string {
+	if (isRecord(parsed)) {
+		const candidates = [
+			parsed.command,
+			parsed.cmd,
+			parsed.path,
+			parsed.file_path,
+			parsed.pattern,
+			parsed.query,
+			parsed.url,
+			parsed.description,
+		];
+		for (const c of candidates) {
+			if (typeof c === "string" && c.length > 0) {
+				return c.length > 200 ? `${c.slice(0, 200)}…` : c;
+			}
+		}
+	}
+	if (!raw) return "";
+	return raw.length > 200 ? `${raw.slice(0, 200)}…` : raw;
 }

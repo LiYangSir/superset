@@ -41,6 +41,8 @@ export function useAgentHookListener() {
 	const completeActivity = electronTrpc.agentActivities.complete.useMutation();
 	const updateActivityMetadata =
 		electronTrpc.agentActivities.updateMetadata.useMutation();
+	const setActivityStatus =
+		electronTrpc.agentActivities.setStatus.useMutation();
 
 	// Ref avoids stale closure; parsed from URL since hook runs in _authenticated/layout
 	const currentWorkspaceIdRef = useRef<string | null>(null);
@@ -138,21 +140,40 @@ export function useAgentHookListener() {
 							},
 						);
 					}
-				} else if (eventType === "ToolUse") {
-					const { toolName, toolInput } = lifecycleEvent;
-					if (toolName && toolInput) {
+				} else if (eventType === "ToolUse" || eventType === "ToolStart") {
+					const { toolName, toolInput, toolPhase } = lifecycleEvent;
+					if (toolName) {
 						updateActivityMetadata.mutate({
 							paneId,
 							workspaceId,
 							toolName,
-							toolInput,
+							toolInput: toolInput ?? "",
+							toolPhase:
+								toolPhase ?? (eventType === "ToolStart" ? "pre" : "post"),
 						});
 					}
-					state.setPaneStatus(paneId, "working");
+					if (eventType === "ToolUse") {
+						state.setPaneStatus(paneId, "working");
+						setActivityStatus.mutate({
+							paneId,
+							workspaceId,
+							status: "in_progress",
+						});
+					}
 				} else if (eventType === "Start") {
 					state.setPaneStatus(paneId, "working");
+					setActivityStatus.mutate({
+						paneId,
+						workspaceId,
+						status: "in_progress",
+					});
 				} else if (eventType === "PermissionRequest") {
 					state.setPaneStatus(paneId, "permission");
+					setActivityStatus.mutate({
+						paneId,
+						workspaceId,
+						status: "waiting_for_input",
+					});
 				} else if (eventType === "SessionEnd") {
 					state.setPaneStatus(paneId, "idle");
 					completeActivity.mutate({ paneId, workspaceId });

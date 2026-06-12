@@ -19,12 +19,20 @@ describe("notifications/server", () => {
 			expect(mapEventType("agent-turn-complete")).toBe("Stop");
 		});
 
-		it("should map 'PostToolUse' to 'Start'", () => {
-			expect(mapEventType("PostToolUse")).toBe("Start");
+		it("should map 'PostToolUse' to 'ToolUse'", () => {
+			expect(mapEventType("PostToolUse")).toBe("ToolUse");
 		});
 
-		it("should map 'PostToolUseFailure' to 'Start'", () => {
-			expect(mapEventType("PostToolUseFailure")).toBe("Start");
+		it("should map 'PostToolUseFailure' to 'ToolUse'", () => {
+			expect(mapEventType("PostToolUseFailure")).toBe("ToolUse");
+		});
+
+		it("should map 'PreToolUse' to 'ToolStart'", () => {
+			expect(mapEventType("PreToolUse")).toBe("ToolStart");
+		});
+
+		it("should map 'preToolUse' to 'ToolStart'", () => {
+			expect(mapEventType("preToolUse")).toBe("ToolStart");
 		});
 
 		it("should map Gemini 'BeforeAgent' to 'Start'", () => {
@@ -35,8 +43,8 @@ describe("notifications/server", () => {
 			expect(mapEventType("AfterAgent")).toBe("Stop");
 		});
 
-		it("should map Gemini 'AfterTool' to 'Start'", () => {
-			expect(mapEventType("AfterTool")).toBe("Start");
+		it("should map Gemini 'AfterTool' to 'ToolUse'", () => {
+			expect(mapEventType("AfterTool")).toBe("ToolUse");
 		});
 
 		it("should map 'PermissionRequest' to 'PermissionRequest'", () => {
