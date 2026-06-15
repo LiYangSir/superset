@@ -317,7 +317,10 @@ async function inducePolicies(episodeId: string) {
 		.from(memoryPolicies)
 		.where(
 			and(
-				eq(memoryPolicies.status, "active"),
+				or(
+					eq(memoryPolicies.status, "active"),
+					eq(memoryPolicies.status, "candidate"),
+				),
 				episode.projectId
 					? or(
 							eq(memoryPolicies.scope, "global"),
@@ -346,7 +349,7 @@ async function inducePolicies(episodeId: string) {
 
 	const existingPolicySummary =
 		existingPolicies.length > 0
-			? `\nExisting policies (avoid duplicates, but you may reference them by index if a trace REINFORCES one):\n${existingPolicies.map((p, i) => `[${i}] WHEN ${p.trigger} THEN ${p.procedure}`).join("\n")}\n`
+			? `\nExisting policies (avoid duplicates, but you may reference them by index if a trace REINFORCES one):\n${existingPolicies.map((p, i) => `[${i}] status=${p.status} support=${p.support} WHEN ${p.trigger} THEN ${p.procedure}`).join("\n")}\n`
 			: "";
 
 	const result = await callLlm(
@@ -418,11 +421,19 @@ Return ONLY the JSON object. Return {"new_policies":[],"reinforced":[]} if nothi
 			const policy = existingPolicies[idx];
 			const currentEpisodeIds =
 				(policy.sourceEpisodeIds as string[] | null) ?? [];
+			if (currentEpisodeIds.includes(episodeId)) continue;
+
+			const currentTraceIds = (policy.sourceTraceIds as string[] | null) ?? [];
+			const sourceTraceIds = Array.from(
+				new Set([...currentTraceIds, ...highValueTraces.map((t) => t.id)]),
+			);
+
 			localDb
 				.update(memoryPolicies)
 				.set({
 					support: policy.support + 1,
 					sourceEpisodeIds: [...currentEpisodeIds, episodeId],
+					sourceTraceIds,
 					updatedAt: Date.now(),
 				})
 				.where(eq(memoryPolicies.id, policy.id))
@@ -440,16 +451,18 @@ Return ONLY the JSON object. Return {"new_policies":[],"reinforced":[]} if nothi
 // Pipeline Step 4b: Promote candidate policies with enough support
 // ---------------------------------------------------------------------------
 
-function promotePolicies() {
-	const SUPPORT_THRESHOLD = 3;
+const POLICY_MIN_SUPPORT = 1;
+const POLICY_MIN_GAIN = 0.02;
 
+function promotePolicies() {
 	const promoted = localDb
 		.update(memoryPolicies)
 		.set({ status: "active", updatedAt: Date.now() })
 		.where(
 			and(
 				eq(memoryPolicies.status, "candidate"),
-				gte(memoryPolicies.support, SUPPORT_THRESHOLD),
+				gte(memoryPolicies.support, POLICY_MIN_SUPPORT),
+				gte(memoryPolicies.gain, POLICY_MIN_GAIN),
 			),
 		)
 		.returning()
@@ -468,7 +481,7 @@ function promotePolicies() {
 // Pipeline Step 5: Abstract World Models (L2 → L3)
 // ---------------------------------------------------------------------------
 
-const WORLD_MODEL_MIN_POLICIES = 3;
+const WORLD_MODEL_MIN_POLICIES = 1;
 
 async function abstractWorldModels(episodeId: string) {
 	const episode = localDb
@@ -490,7 +503,8 @@ async function abstractWorldModels(episodeId: string) {
 							eq(memoryPolicies.projectId, episode.projectId),
 						)
 					: eq(memoryPolicies.scope, "global"),
-				gte(memoryPolicies.support, 2),
+				gte(memoryPolicies.support, POLICY_MIN_SUPPORT),
+				gte(memoryPolicies.gain, POLICY_MIN_GAIN),
 			),
 		)
 		.orderBy(desc(memoryPolicies.support))
@@ -600,8 +614,8 @@ Return ONLY the JSON array.`,
 // Pipeline Step 6: Crystallize Skills (L2+L3 → Skills)
 // ---------------------------------------------------------------------------
 
-const SKILL_MIN_SUPPORT = 5;
-const SKILL_MIN_GAIN = 0.6;
+const SKILL_MIN_SUPPORT = 1;
+const SKILL_MIN_GAIN = 0.02;
 
 async function crystallizeSkills(episodeId: string) {
 	const episode = localDb
@@ -690,7 +704,7 @@ async function crystallizeSkills(episodeId: string) {
 		`From these well-validated policies and environmental context, crystallize callable skills.
 
 A skill is a MATURE, REUSABLE capability that an agent can invoke as a complete procedure.
-Only crystallize when multiple policies converge on a clear, repeatable workflow.
+Crystallize when a validated policy describes a clear, repeatable workflow.
 
 Eligible policies:
 ${policySummary.slice(0, 3000)}
@@ -737,7 +751,9 @@ Return ONLY the JSON array.`,
 				name: s.name,
 				invocationGuide: s.invocationGuide,
 				procedureJson: s.procedure ?? null,
-				eta: 0.5,
+				eta: 1,
+				trialsAttempted: 1,
+				trialsPassed: 1,
 				status: "candidate",
 				scope: s.scope === "project" ? "project" : "global",
 				evidenceAnchors: evidenceIds.length > 0 ? evidenceIds : null,
@@ -754,8 +770,8 @@ Return ONLY the JSON array.`,
 // ---------------------------------------------------------------------------
 
 function promoteSkills() {
-	const CANDIDATE_TRIALS = 3;
-	const MIN_ETA = 0.6;
+	const CANDIDATE_TRIALS = 1;
+	const MIN_ETA = 0.1;
 
 	const candidates = localDb
 		.select()
@@ -1070,17 +1086,17 @@ export async function runPipeline(episodeId: string) {
 	}
 
 	try {
-		updatePolicyGains(episodeId);
-		results.gainsUpdated = true;
-	} catch (e) {
-		console.error("[pipeline] updatePolicyGains failed:", e);
-	}
-
-	try {
 		await inducePolicies(episodeId);
 		results.policiesInduced = true;
 	} catch (e) {
 		console.error("[pipeline] inducePolicies failed:", e);
+	}
+
+	try {
+		updatePolicyGains(episodeId);
+		results.gainsUpdated = true;
+	} catch (e) {
+		console.error("[pipeline] updatePolicyGains failed:", e);
 	}
 
 	try {

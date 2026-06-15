@@ -1,11 +1,14 @@
 import { Button } from "@superset/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouter } from "@tanstack/react-router";
 import { CiSettings } from "react-icons/ci";
 import { HotkeyTooltipContent } from "renderer/components/HotkeyTooltipContent";
+import { useSetPreSettingsPath } from "renderer/stores/settings-state";
 
 export function SettingsButton() {
 	const navigate = useNavigate();
+	const router = useRouter();
+	const setPreSettingsPath = useSetPreSettingsPath();
 
 	return (
 		<Tooltip>
@@ -13,7 +16,10 @@ export function SettingsButton() {
 				<Button
 					variant="ghost"
 					size="icon"
-					onClick={() => navigate({ to: "/settings/appearance" })}
+					onClick={() => {
+						setPreSettingsPath(router.state.location.href);
+						navigate({ to: "/settings/appearance" });
+					}}
 					aria-label="Open settings"
 					className="no-drag"
 				>

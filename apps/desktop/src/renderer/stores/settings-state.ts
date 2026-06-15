@@ -26,12 +26,15 @@ interface SettingsState {
 	activeProjectId: string | null;
 	searchQuery: string;
 	isOpen: boolean;
+	preSettingsPath: string | null;
 
 	setActiveSection: (section: SettingsSection) => void;
 	setActiveProject: (projectId: string | null) => void;
 	setSearchQuery: (query: string) => void;
 	openSettings: (section?: SettingsSection) => void;
 	closeSettings: () => void;
+	setPreSettingsPath: (path: string) => void;
+	consumePreSettingsPath: () => string | null;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -41,6 +44,7 @@ export const useSettingsStore = create<SettingsState>()(
 			activeProjectId: null,
 			searchQuery: "",
 			isOpen: false,
+			preSettingsPath: null,
 
 			setActiveSection: (section) => set({ activeSection: section }),
 
@@ -63,6 +67,14 @@ export const useSettingsStore = create<SettingsState>()(
 					isOpen: false,
 					searchQuery: "",
 				}),
+
+			setPreSettingsPath: (path) => set({ preSettingsPath: path }),
+
+			consumePreSettingsPath: () => {
+				const path = useSettingsStore.getState().preSettingsPath;
+				set({ preSettingsPath: null });
+				return path;
+			},
 		}),
 		{ name: "SettingsStore" },
 	),
@@ -80,3 +92,7 @@ export const useActiveProjectId = () =>
 	useSettingsStore((state) => state.activeProjectId);
 export const useCloseSettings = () =>
 	useSettingsStore((state) => state.closeSettings);
+export const useSetPreSettingsPath = () =>
+	useSettingsStore((state) => state.setPreSettingsPath);
+export const useConsumePreSettingsPath = () =>
+	useSettingsStore((state) => state.consumePreSettingsPath);

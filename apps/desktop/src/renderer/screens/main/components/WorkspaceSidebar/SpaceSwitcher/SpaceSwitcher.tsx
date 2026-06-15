@@ -5,10 +5,12 @@ import { useEffect, useRef, useState } from "react";
 import { LuWandSparkles } from "react-icons/lu";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import {
+	getLastWorkspaceForSpace,
 	useActiveSpaceHydrated,
 	useActiveSpaceId,
 	useSetActiveSpaceId,
 } from "renderer/stores/active-space";
+import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
 import { STROKE_WIDTH } from "../constants";
 
 interface SpaceSwitcherProps {
@@ -101,7 +103,12 @@ export function SpaceSwitcher({ isCollapsed = false }: SpaceSwitcherProps) {
 	const handleSpaceClick = (spaceId: string) => {
 		setActiveSpaceId(spaceId);
 		if (isMagicPage) {
-			navigate({ to: "/workspace" });
+			const lastWorkspaceId = getLastWorkspaceForSpace(spaceId);
+			if (lastWorkspaceId) {
+				navigateToWorkspace(lastWorkspaceId, navigate);
+			} else {
+				navigate({ to: "/workspace" });
+			}
 		}
 	};
 

@@ -3,17 +3,21 @@ import {
 	Outlet,
 	useMatchRoute,
 	useNavigate,
+	useRouter,
 } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { ResizablePanel } from "renderer/screens/main/components/ResizablePanel";
 import { WorkspaceSidebar } from "renderer/screens/main/components/WorkspaceSidebar";
 import {
+	getLastWorkspaceForSpace,
+	setLastWorkspaceForSpace,
 	useActiveSpaceId,
 	useSetActiveSpaceId,
 } from "renderer/stores/active-space";
 import { useAppHotkey } from "renderer/stores/hotkeys";
 import { useOpenNewWorkspaceModal } from "renderer/stores/new-workspace-modal";
+import { useSetPreSettingsPath } from "renderer/stores/settings-state";
 import {
 	COLLAPSED_WORKSPACE_SIDEBAR_WIDTH,
 	DEFAULT_WORKSPACE_SIDEBAR_WIDTH,
@@ -64,7 +68,9 @@ function getFirstWorkspaceInSpace(
 
 function DashboardLayout() {
 	const navigate = useNavigate();
+	const router = useRouter();
 	const openNewWorkspaceModal = useOpenNewWorkspaceModal();
+	const setPreSettingsPath = useSetPreSettingsPath();
 	const activeSpaceId = useActiveSpaceId();
 	const setActiveSpaceId = useSetActiveSpaceId();
 	// Get current workspace from route to pre-select project in new workspace modal
@@ -94,11 +100,17 @@ function DashboardLayout() {
 	useEffect(() => {
 		if (isMagicPage) return;
 		const workspaceSpaceId = currentWorkspace?.project?.spaceId;
-		if (!workspaceSpaceId) return;
+		if (!workspaceSpaceId || !currentWorkspaceId) return;
+		setLastWorkspaceForSpace(workspaceSpaceId, currentWorkspaceId);
 		if (workspaceSpaceId === prevWorkspaceSpaceIdRef.current) return;
 		prevWorkspaceSpaceIdRef.current = workspaceSpaceId;
 		setActiveSpaceId(workspaceSpaceId);
-	}, [currentWorkspace?.project?.spaceId, isMagicPage, setActiveSpaceId]);
+	}, [
+		currentWorkspace?.project?.spaceId,
+		currentWorkspaceId,
+		isMagicPage,
+		setActiveSpaceId,
+	]);
 
 	// Space switching: fetch spaces list and grouped workspaces for active space
 	const { data: spacesData = [] } = electronTrpc.spaces.list.useQuery();
@@ -134,10 +146,13 @@ function DashboardLayout() {
 			const targetSpace = spaces[newIndex - 1];
 			setActiveSpaceId(targetSpace.id);
 			if (isMagicPage) {
-				const targetWorkspaceId = getFirstWorkspaceInSpace(
-					allGroupsForMagic as SpaceWorkspaceGroup[],
-					targetSpace.id,
-				);
+				const lastWorkspaceId = getLastWorkspaceForSpace(targetSpace.id);
+				const targetWorkspaceId =
+					lastWorkspaceId ??
+					getFirstWorkspaceInSpace(
+						allGroupsForMagic as SpaceWorkspaceGroup[],
+						targetSpace.id,
+					);
 				if (targetWorkspaceId) {
 					navigateToWorkspace(targetWorkspaceId, navigate);
 				} else {
@@ -171,9 +186,15 @@ function DashboardLayout() {
 			currentWorkspace?.project?.spaceId === activeSpaceId;
 		if (currentBelongsToSpace) return;
 
-		const firstWorkspace = spaceGroups[0]?.workspaces[0];
-		if (firstWorkspace) {
-			navigateToWorkspace(firstWorkspace.id, navigate);
+		const lastWorkspaceId = getLastWorkspaceForSpace(activeSpaceId);
+		const targetWorkspaceId =
+			lastWorkspaceId ??
+			getFirstWorkspaceInSpace(
+				spaceGroups as SpaceWorkspaceGroup[],
+				activeSpaceId,
+			);
+		if (targetWorkspaceId) {
+			navigateToWorkspace(targetWorkspaceId, navigate);
 		}
 	}, [
 		activeSpaceId,
@@ -197,16 +218,22 @@ function DashboardLayout() {
 	// Global hotkeys for dashboard
 	useAppHotkey(
 		"OPEN_SETTINGS",
-		() => navigate({ to: "/settings/appearance" }),
+		() => {
+			setPreSettingsPath(router.state.location.href);
+			navigate({ to: "/settings/appearance" });
+		},
 		undefined,
-		[navigate],
+		[navigate, router, setPreSettingsPath],
 	);
 
 	useAppHotkey(
 		"SHOW_HOTKEYS",
-		() => navigate({ to: "/settings/keyboard" }),
+		() => {
+			setPreSettingsPath(router.state.location.href);
+			navigate({ to: "/settings/keyboard" });
+		},
 		undefined,
-		[navigate],
+		[navigate, router, setPreSettingsPath],
 	);
 
 	useAppHotkey(

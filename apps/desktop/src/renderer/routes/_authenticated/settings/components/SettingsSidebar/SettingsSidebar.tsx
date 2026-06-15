@@ -7,6 +7,7 @@ import {
 	HiXMark,
 } from "react-icons/hi2";
 import {
+	useConsumePreSettingsPath,
 	useSetSettingsSearchQuery,
 	useSettingsSearchQuery,
 } from "renderer/stores/settings-state";
@@ -18,10 +19,16 @@ export function SettingsSidebar() {
 	const navigate = useNavigate();
 	const searchQuery = useSettingsSearchQuery();
 	const setSearchQuery = useSetSettingsSearchQuery();
+	const consumePreSettingsPath = useConsumePreSettingsPath();
 	const matchCounts = searchQuery ? getMatchCountBySection(searchQuery) : null;
 
 	const handleBack = () => {
-		void navigate({ to: "/workspace" });
+		const previousPath = consumePreSettingsPath();
+		if (previousPath) {
+			void navigate({ to: previousPath });
+		} else {
+			void navigate({ to: "/workspace" });
+		}
 	};
 
 	return (

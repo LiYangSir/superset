@@ -1,4 +1,9 @@
-import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import {
+	createFileRoute,
+	Outlet,
+	useNavigate,
+	useRouter,
+} from "@tanstack/react-router";
 import { useRef } from "react";
 import { DndProvider } from "react-dnd";
 import { NewWorkspaceModal } from "renderer/components/NewWorkspaceModal";
@@ -9,6 +14,7 @@ import { InitGitDialog } from "renderer/react-query/projects/InitGitDialog";
 import { WorkspaceInitEffects } from "renderer/screens/main/components/WorkspaceInitEffects";
 import { useHotkeysSync } from "renderer/stores/hotkeys";
 import { useAgentHookListener } from "renderer/stores/tabs/useAgentHookListener";
+import { useSetPreSettingsPath } from "renderer/stores/settings-state";
 import { useWorkspaceInitStore } from "renderer/stores/workspace-init";
 import { TeardownLogsDialog } from "./components/TeardownLogsDialog";
 
@@ -18,6 +24,8 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AuthenticatedLayout() {
 	const navigate = useNavigate();
+	const router = useRouter();
+	const setPreSettingsPath = useSetPreSettingsPath();
 	const utils = electronTrpc.useUtils();
 	const shownWorkspaceInitWarningsRef = useRef(new Set<string>());
 
@@ -54,6 +62,7 @@ function AuthenticatedLayout() {
 		onData: (event) => {
 			if (event.type === "open-settings") {
 				const section = event.data.section || "appearance";
+				setPreSettingsPath(router.state.location.href);
 				navigate({ to: `/settings/${section}` as "/settings/appearance" });
 			} else if (event.type === "open-workspace") {
 				navigate({ to: `/workspace/${event.data.workspaceId}` });
