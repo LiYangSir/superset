@@ -8,12 +8,13 @@ import { cn } from "@superset/ui/utils";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import {
-	LuArchive,
 	LuCheck,
 	LuChevronRight,
 	LuCircle,
 	LuCircleAlert,
 	LuSquare,
+	LuTerminal,
+	LuX,
 } from "react-icons/lu";
 import { ActivityBars } from "renderer/components/activity/ActivityBars";
 import { getAgentColor } from "renderer/components/activity/agent-colors";
@@ -28,6 +29,7 @@ import {
 	formatDuration,
 	formatRelativeTime,
 	getActivityDisplayText,
+	getActivitySecondaryText,
 } from "renderer/components/activity/utils";
 import { useNow } from "renderer/hooks/useNow";
 import { electronTrpc } from "renderer/lib/electron-trpc";
@@ -219,7 +221,7 @@ function ActivityItem({
 						type="button"
 						onClick={handleStop}
 						disabled={!activity.paneId || signalMutation.isPending}
-						className="opacity-60 hover:opacity-100 p-0.5 rounded hover:bg-red-500/10 transition-all shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
+						className="p-0.5 rounded hover:bg-red-500/10 transition-all shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
 						aria-label="Stop"
 						title="Send SIGINT to stop the agent"
 					>
@@ -232,15 +234,37 @@ function ActivityItem({
 							e.stopPropagation();
 							onArchive(activity.id);
 						}}
-						className="opacity-0 group-hover/item:opacity-100 p-0.5 rounded hover:bg-muted transition-all shrink-0"
-						aria-label="Archive"
+						className={cn(
+							"p-0.5 rounded hover:bg-muted transition-all shrink-0",
+							isStale
+								? "opacity-60 hover:opacity-100"
+								: "opacity-0 group-hover/item:opacity-100",
+						)}
+						aria-label="Dismiss"
+						title="Archive this activity"
 					>
-						<LuArchive className="size-3 text-muted-foreground" />
+						<LuX className="size-3 text-muted-foreground" />
 					</button>
 				)}
 			</div>
 			<CollapsibleContent>
 				<div className="px-3 pb-2 pl-12 space-y-1.5">
+					{(() => {
+						const secondary = getActivitySecondaryText(activity, metadata);
+						return secondary ? (
+							<p className="text-[11px] text-muted-foreground whitespace-pre-wrap break-words line-clamp-3">
+								{secondary}
+							</p>
+						) : null;
+					})()}
+					{isRunningOrWaiting && metadata.lastTool && (
+						<div className="flex items-center gap-1.5">
+							<LuTerminal className="size-3 text-muted-foreground/60" />
+							<span className="text-[10px] text-muted-foreground font-mono">
+								{metadata.lastTool}
+							</span>
+						</div>
+					)}
 					{hasProgress && (
 						<TasksProgress metadata={metadata} isActive={isRunningOrWaiting} />
 					)}
@@ -248,19 +272,14 @@ function ActivityItem({
 						<div className="rounded border border-red-500/20 bg-red-500/5 px-2 py-1">
 							<div className="flex items-center gap-1.5 text-[10px] font-medium text-red-600 dark:text-red-400">
 								<LuCircleAlert className="size-3" />
-								<span>Last failure: {metadata.lastFailure.toolName}</span>
+								<span>Failed: {metadata.lastFailure.toolName}</span>
 							</div>
 							{metadata.lastFailure.summary && (
-								<p className="mt-0.5 text-[11px] text-muted-foreground whitespace-pre-wrap break-words font-mono">
+								<p className="mt-0.5 text-[10px] text-muted-foreground font-mono line-clamp-2">
 									{metadata.lastFailure.summary}
 								</p>
 							)}
 						</div>
-					)}
-					{activity.userMessage && activity.userMessage !== displayText && (
-						<p className="text-[11px] text-muted-foreground whitespace-pre-wrap break-words line-clamp-3">
-							{activity.userMessage}
-						</p>
 					)}
 					<DetailMeta activity={activity} metadata={metadata} />
 				</div>

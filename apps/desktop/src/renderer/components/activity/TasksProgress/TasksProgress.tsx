@@ -13,8 +13,10 @@ import {
 	LuCircleAlert,
 	LuLoader,
 } from "react-icons/lu";
+import { useNow } from "renderer/hooks/useNow";
 import type { ActivityMetadata, SubagentInfo, TaskInfo } from "../types";
 import { countSubagentProgress, countTaskProgress } from "../types";
+import { formatDuration } from "../utils";
 
 interface TasksProgressProps {
 	metadata: ActivityMetadata;
@@ -58,6 +60,7 @@ export function TasksProgress({
 					total={subagentCounts.total}
 					defaultOpen={isActive && subagentCounts.running > 0}
 					compact={compact}
+					isActive={isActive}
 				/>
 			)}
 		</div>
@@ -172,6 +175,7 @@ interface SubagentListProps {
 	total: number;
 	defaultOpen: boolean;
 	compact: boolean;
+	isActive: boolean;
 }
 
 function SubagentList({
@@ -182,8 +186,10 @@ function SubagentList({
 	total,
 	defaultOpen,
 	compact,
+	isActive,
 }: SubagentListProps) {
 	const [open, setOpen] = useState(defaultOpen);
+	const hasRunning = running > 0;
 
 	return (
 		<Collapsible open={open} onOpenChange={setOpen}>
@@ -206,7 +212,11 @@ function SubagentList({
 			<CollapsibleContent>
 				<ul className={cn("pl-4 mt-1", compact ? "space-y-0" : "space-y-0.5")}>
 					{subagents.map((sa) => (
-						<SubagentRow key={sa.id} subagent={sa} />
+						<SubagentRow
+							key={sa.id}
+							subagent={sa}
+							showElapsed={isActive && hasRunning}
+						/>
 					))}
 				</ul>
 			</CollapsibleContent>
@@ -214,24 +224,37 @@ function SubagentList({
 	);
 }
 
-function SubagentRow({ subagent }: { subagent: SubagentInfo }) {
+function SubagentRow({
+	subagent,
+	showElapsed,
+}: { subagent: SubagentInfo; showElapsed: boolean }) {
+	const isRunning = subagent.status === "in_progress";
+	const now = useNow(1000, showElapsed && isRunning);
 	const Icon =
 		subagent.status === "completed"
 			? LuCheck
 			: subagent.status === "failed"
 				? LuCircleAlert
 				: LuLoader;
+
+	const elapsed =
+		isRunning && subagent.startedAt
+			? formatDuration(now - subagent.startedAt)
+			: subagent.endedAt && subagent.startedAt
+				? formatDuration(subagent.endedAt - subagent.startedAt)
+				: null;
+
 	return (
-		<li className="flex items-start gap-1.5 text-[11px] leading-tight">
+		<li className="flex items-center gap-1.5 text-[11px] leading-tight">
 			<Icon
 				className={cn(
-					"size-3 shrink-0 mt-0.5",
+					"size-3 shrink-0",
 					subagent.status === "completed" && "text-green-500",
 					subagent.status === "in_progress" && "text-amber-500 animate-spin",
 					subagent.status === "failed" && "text-red-500",
 				)}
 			/>
-			<span className="text-muted-foreground">
+			<span className="text-muted-foreground truncate flex-1">
 				{subagent.description || `Subagent ${subagent.id}`}
 				{subagent.subagentType && (
 					<span className="ml-1 text-[10px] text-muted-foreground/70 font-mono">
@@ -239,6 +262,21 @@ function SubagentRow({ subagent }: { subagent: SubagentInfo }) {
 					</span>
 				)}
 			</span>
+			{elapsed && (
+				<span
+					className={cn(
+						"text-[10px] shrink-0 tabular-nums",
+						isRunning
+							? "text-amber-500/70"
+							: "text-muted-foreground/60",
+					)}
+				>
+					{elapsed}
+				</span>
+			)}
+			{subagent.status === "failed" && (
+				<span className="text-[10px] text-red-500 shrink-0">failed</span>
+			)}
 		</li>
 	);
 }

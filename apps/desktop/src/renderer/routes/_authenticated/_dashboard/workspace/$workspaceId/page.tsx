@@ -588,11 +588,11 @@ export function WorkspaceRouteContent({
 		],
 	);
 
-	// Navigate to previous workspace (⌘↑)
+	// Navigate to previous workspace (⌘⌥↑)
 	const getPreviousWorkspace =
 		electronTrpc.workspaces.getPreviousWorkspace.useQuery(
-			{ id: workspaceId },
-			{ enabled: !!workspaceId },
+			{ id: workspaceId, spaceId: workspace?.project?.spaceId ?? null },
+			{ enabled: !!workspace },
 		);
 	useAppHotkey(
 		"PREV_WORKSPACE",
@@ -606,10 +606,10 @@ export function WorkspaceRouteContent({
 		[getPreviousWorkspace.data, navigate],
 	);
 
-	// Navigate to next workspace (⌘↓)
+	// Navigate to next workspace (⌘⌥↓)
 	const getNextWorkspace = electronTrpc.workspaces.getNextWorkspace.useQuery(
-		{ id: workspaceId },
-		{ enabled: !!workspaceId },
+		{ id: workspaceId, spaceId: workspace?.project?.spaceId ?? null },
+		{ enabled: !!workspace },
 	);
 	useAppHotkey(
 		"NEXT_WORKSPACE",

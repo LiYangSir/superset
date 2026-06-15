@@ -1,5 +1,10 @@
 import type { SelectAgentActivity } from "@superset/local-db";
-import { type ActivityMetadata, getActiveTask } from "./types";
+import {
+	type ActivityMetadata,
+	countSubagentProgress,
+	countTaskProgress,
+	getActiveTask,
+} from "./types";
 
 export function formatDuration(ms: number): string {
 	if (ms < 1000) return "<1s";
@@ -47,4 +52,55 @@ export function getActivityDisplayText(
 		activity.title ||
 		(activity.status === "in_progress" ? "Working..." : "Completed")
 	);
+}
+
+/**
+ * Returns text complementary to `getActivityDisplayText` so that
+ * collapsed (primary) and expanded (secondary) views never show
+ * identical content.
+ */
+export function getActivitySecondaryText(
+	activity: SelectAgentActivity,
+	metadata: ActivityMetadata,
+): string | null {
+	const primary = getActivityDisplayText(activity, metadata);
+
+	if (primary === activity.summary && activity.userMessage) {
+		return activity.userMessage;
+	}
+	if (primary === activity.userMessage && activity.summary) {
+		return activity.summary;
+	}
+	if (
+		activity.status === "in_progress" &&
+		getActiveTask(metadata) &&
+		activity.userMessage
+	) {
+		return activity.userMessage;
+	}
+	return null;
+}
+
+export function getActivityProgressSummary(
+	metadata: ActivityMetadata,
+): string | null {
+	const parts: string[] = [];
+	const taskCounts = countTaskProgress(metadata);
+	const subagentCounts = countSubagentProgress(metadata);
+
+	if (taskCounts.total > 0) {
+		parts.push(`${taskCounts.completed}/${taskCounts.total} todos`);
+	}
+	if (subagentCounts.running > 0) {
+		parts.push(
+			`${subagentCounts.running} subagent${subagentCounts.running > 1 ? "s" : ""} running`,
+		);
+	} else if (subagentCounts.total > 0 && taskCounts.total === 0) {
+		parts.push(`${subagentCounts.total} subagent${subagentCounts.total > 1 ? "s" : ""}`);
+	}
+	if ((metadata.toolCount ?? 0) >= 5 && taskCounts.total === 0) {
+		parts.push(`${metadata.toolCount} tools`);
+	}
+
+	return parts.length > 0 ? parts.join(" · ") : null;
 }

@@ -96,7 +96,7 @@ export function BasePaneWindow({
 				isRoot ? (
 					<RootDraggable>{renderToolbar(handlers)}</RootDraggable>
 				) : (
-					renderToolbar(handlers)
+					<div className="h-full w-full">{renderToolbar(handlers)}</div>
 				)
 			}
 			className={isActive ? "mosaic-window-focused" : ""}

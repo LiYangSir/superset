@@ -11,12 +11,22 @@ import {
 } from "@superset/ui/hover-card";
 import { cn } from "@superset/ui/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { LuCheck, LuChevronRight, LuCircle, LuCircleAlert, LuLoader } from "react-icons/lu";
+import {
+	LuCheck,
+	LuChevronRight,
+	LuCircle,
+	LuCircleAlert,
+	LuTerminal,
+} from "react-icons/lu";
 import type { MosaicBranch } from "react-mosaic-component";
+import { ActivityBars } from "renderer/components/activity/ActivityBars";
+import { getAgentColor } from "renderer/components/activity/agent-colors";
+import { TasksProgress } from "renderer/components/activity/TasksProgress";
+import { parseMetadata } from "renderer/components/activity/types";
 import {
 	formatDuration,
 	formatRelativeTime,
-} from "renderer/components/activity/ActivityCard/ActivityCard";
+} from "renderer/components/activity/utils";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { StatusIndicator } from "renderer/screens/main/components/StatusIndicator";
 import {
@@ -234,10 +244,23 @@ function PaneToolbarWithActivity({
 }
 
 function ActivityHistoryItem({ activity }: { activity: SelectAgentActivity }) {
-	const [open, setOpen] = useState(false);
-	const summary =
-		activity.summary || activity.userMessage || activity.title || "Completed";
+	const [open, setOpen] = useState(activity.status === "in_progress");
+	const metadata = useMemo(
+		() => parseMetadata(activity.metadata),
+		[activity.metadata],
+	);
+	const isActive = activity.status === "in_progress";
+	const isWaiting = activity.status === "waiting_for_input";
+	const isRunningOrWaiting = isActive || isWaiting;
+
+	const primaryText =
+		activity.userMessage || activity.title || activity.summary || "Agent";
 	const tag = activity.presetName || "claude-code";
+	const agentColor = getAgentColor(activity.presetName);
+
+	const hasProgress =
+		(metadata.tasks?.length ?? 0) > 0 ||
+		(metadata.subagents?.length ?? 0) > 0;
 
 	return (
 		<Collapsible open={open} onOpenChange={setOpen}>
@@ -248,8 +271,12 @@ function ActivityHistoryItem({ activity }: { activity: SelectAgentActivity }) {
 						open && "rotate-90",
 					)}
 				/>
-				{activity.status === "in_progress" ? (
-					<LuLoader className="size-3 shrink-0 text-amber-500 animate-spin" />
+				{isRunningOrWaiting ? (
+					<ActivityBars
+						mode={isWaiting ? "waiting" : "running"}
+						size={12}
+						tint={agentColor}
+					/>
 				) : activity.status === "completed" ? (
 					<LuCheck className="size-3 shrink-0 text-green-500" />
 				) : activity.status === "failed" ? (
@@ -257,7 +284,7 @@ function ActivityHistoryItem({ activity }: { activity: SelectAgentActivity }) {
 				) : (
 					<LuCircle className="size-3 shrink-0 text-muted-foreground" />
 				)}
-				<span className="text-xs truncate flex-1">{summary}</span>
+				<span className="text-xs truncate flex-1">{primaryText}</span>
 				<span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono shrink-0">
 					{tag}
 				</span>
@@ -267,20 +294,46 @@ function ActivityHistoryItem({ activity }: { activity: SelectAgentActivity }) {
 			</CollapsibleTrigger>
 			<CollapsibleContent>
 				<div className="px-3 pb-2 pl-8 space-y-1.5">
-					{activity.userMessage && (
-						<p className="text-[11px] text-muted-foreground whitespace-pre-wrap break-words">
-							{activity.userMessage}
-						</p>
-					)}
-					{activity.summary && activity.userMessage && (
-						<p className="text-[11px] text-foreground/80">
+					{activity.summary && (
+						<p className="text-[11px] text-foreground/80 whitespace-pre-wrap break-words line-clamp-4">
 							{activity.summary}
 						</p>
 					)}
+					{isRunningOrWaiting && metadata.lastTool && (
+						<div className="flex items-center gap-1.5">
+							<LuTerminal className="size-3 text-muted-foreground/60" />
+							<span className="text-[10px] text-muted-foreground font-mono">
+								{metadata.lastTool}
+							</span>
+						</div>
+					)}
+					{hasProgress && (
+						<TasksProgress
+							metadata={metadata}
+							isActive={isRunningOrWaiting}
+							density="compact"
+						/>
+					)}
+					{metadata.lastFailure && (
+						<div className="rounded border border-red-500/20 bg-red-500/5 px-2 py-1">
+							<div className="flex items-center gap-1.5 text-[10px] font-medium text-red-600 dark:text-red-400">
+								<LuCircleAlert className="size-3" />
+								<span>Failed: {metadata.lastFailure.toolName}</span>
+							</div>
+							{metadata.lastFailure.summary && (
+								<p className="mt-0.5 text-[10px] text-muted-foreground font-mono line-clamp-2">
+									{metadata.lastFailure.summary}
+								</p>
+							)}
+						</div>
+					)}
 					<div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground/70">
-						{activity.modelName && <span>Model: {activity.modelName}</span>}
+						{activity.modelName && <span>{activity.modelName}</span>}
 						{activity.durationMs != null && (
-							<span>Duration: {formatDuration(activity.durationMs)}</span>
+							<span>{formatDuration(activity.durationMs)}</span>
+						)}
+						{(metadata.toolCount ?? 0) > 0 && (
+							<span>{metadata.toolCount} tool calls</span>
 						)}
 					</div>
 				</div>

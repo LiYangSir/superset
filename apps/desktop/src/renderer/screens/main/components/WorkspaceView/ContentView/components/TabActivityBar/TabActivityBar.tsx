@@ -12,6 +12,7 @@ import {
 	LuChevronRight,
 	LuCircleAlert,
 	LuSquare,
+	LuTerminal,
 } from "react-icons/lu";
 import { ActivityBars } from "renderer/components/activity/ActivityBars";
 import { getAgentColor } from "renderer/components/activity/agent-colors";
@@ -26,6 +27,7 @@ import {
 	formatDuration,
 	formatRelativeTime,
 	getActivityDisplayText,
+	getActivitySecondaryText,
 } from "renderer/components/activity/utils";
 import { useNow } from "renderer/hooks/useNow";
 import { electronTrpc } from "renderer/lib/electron-trpc";
@@ -220,6 +222,8 @@ function ActiveDetail({
 		signalMutation.mutate({ paneId: activity.paneId, signal: "SIGINT" });
 	};
 
+	const secondaryText = getActivitySecondaryText(activity, metadata);
+
 	return (
 		<div className="px-3 py-2 border-b border-border/50 bg-amber-500/5">
 			<div className="flex items-center gap-2">
@@ -241,6 +245,19 @@ function ActiveDetail({
 					Stop
 				</button>
 			</div>
+			{secondaryText && (
+				<p className="mt-1 text-[10px] text-muted-foreground/80 truncate">
+					{secondaryText}
+				</p>
+			)}
+			{metadata.lastTool && (
+				<div className="mt-1 flex items-center gap-1.5">
+					<LuTerminal className="size-3 text-muted-foreground/60" />
+					<span className="text-[10px] text-muted-foreground font-mono">
+						{metadata.lastTool}
+					</span>
+				</div>
+			)}
 			{hasProgress && (
 				<div className="mt-1.5">
 					<TasksProgress metadata={metadata} isActive density="compact" />
@@ -311,18 +328,26 @@ function HistoryRow({
 			: activity.status === "failed"
 				? "text-red-500"
 				: "text-muted-foreground";
+	const secondaryText = getActivitySecondaryText(activity, metadata);
 
 	return (
 		<button
 			type="button"
 			onClick={() => onJump(activity)}
-			className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-muted/40 transition-colors border-b border-border/30 last:border-b-0"
+			className="flex w-full items-start gap-2 px-3 py-1.5 text-left hover:bg-muted/40 transition-colors border-b border-border/30 last:border-b-0"
 		>
-			<Icon className={cn("size-3 shrink-0", iconClass)} />
-			<span className="text-[11px] text-foreground truncate flex-1">
-				{getActivityDisplayText(activity, metadata)}
-			</span>
-			<span className="text-[10px] text-muted-foreground/70 shrink-0 tabular-nums">
+			<Icon className={cn("size-3 shrink-0 mt-0.5", iconClass)} />
+			<div className="min-w-0 flex-1">
+				<span className="text-[11px] text-foreground truncate block">
+					{getActivityDisplayText(activity, metadata)}
+				</span>
+				{secondaryText && (
+					<span className="text-[10px] text-muted-foreground/70 truncate block">
+						{secondaryText}
+					</span>
+				)}
+			</div>
+			<span className="text-[10px] text-muted-foreground/70 shrink-0 tabular-nums mt-0.5">
 				{activity.durationMs != null
 					? formatDuration(activity.durationMs)
 					: formatRelativeTime(activity.startedAt)}

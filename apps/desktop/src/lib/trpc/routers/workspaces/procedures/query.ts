@@ -17,11 +17,20 @@ import { getWorkspacePath } from "../utils/worktree";
 type WorktreePathMap = Map<string, string>;
 
 /** Returns workspace IDs in sidebar visual order (by project.tabOrder, then ungrouped workspaces, then sections by tabOrder). */
-function getWorkspacesInVisualOrder(): string[] {
+function getWorkspacesInVisualOrder(spaceId?: string | null): string[] {
 	const activeProjects = localDb
 		.select()
 		.from(projects)
-		.where(isNotNull(projects.tabOrder))
+		.where(
+			spaceId === undefined
+				? isNotNull(projects.tabOrder)
+				: and(
+						isNotNull(projects.tabOrder),
+						spaceId === null
+							? isNull(projects.spaceId)
+							: eq(projects.spaceId, spaceId),
+					),
+		)
 		.all();
 
 	const allWorkspaces = localDb
@@ -266,9 +275,11 @@ export const createQueryProcedures = () => {
 			}),
 
 		getPreviousWorkspace: publicProcedure
-			.input(z.object({ id: z.string() }))
+			.input(
+				z.object({ id: z.string(), spaceId: z.string().nullable().optional() }),
+			)
 			.query(({ input }) => {
-				const orderedWorkspaceIds = getWorkspacesInVisualOrder();
+				const orderedWorkspaceIds = getWorkspacesInVisualOrder(input.spaceId);
 				if (orderedWorkspaceIds.length === 0) return null;
 
 				const currentIndex = orderedWorkspaceIds.indexOf(input.id);
@@ -282,9 +293,11 @@ export const createQueryProcedures = () => {
 			}),
 
 		getNextWorkspace: publicProcedure
-			.input(z.object({ id: z.string() }))
+			.input(
+				z.object({ id: z.string(), spaceId: z.string().nullable().optional() }),
+			)
 			.query(({ input }) => {
-				const orderedWorkspaceIds = getWorkspacesInVisualOrder();
+				const orderedWorkspaceIds = getWorkspacesInVisualOrder(input.spaceId);
 				if (orderedWorkspaceIds.length === 0) return null;
 
 				const currentIndex = orderedWorkspaceIds.indexOf(input.id);

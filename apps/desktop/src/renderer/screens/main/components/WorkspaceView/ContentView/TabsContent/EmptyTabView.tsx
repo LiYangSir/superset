@@ -35,17 +35,16 @@ export function EmptyTabView({
 	onOpenInApp,
 	onOpenQuickOpen,
 }: EmptyTabViewProps) {
-	const { workspaceId } = useParams({
-		from: "/_authenticated/_dashboard/workspace/$workspaceId/",
-	});
+	const { workspaceId } = useParams({ strict: false });
 	const { addTab } = useTabsWithPresets();
 	const addChatMastraTab = useTabsStore((s) => s.addChatMastraTab);
 	const addBrowserTab = useTabsStore((s) => s.addBrowserTab);
 	const activeTheme = useTheme();
 
-	const { data: workspace } = electronTrpc.workspaces.get.useQuery({
-		id: workspaceId,
-	});
+	const { data: workspace } = electronTrpc.workspaces.get.useQuery(
+		{ id: workspaceId! },
+		{ enabled: !!workspaceId },
+	);
 	const { showDeleteDialog, setShowDeleteDialog, handleDeleteClick } =
 		useWorkspaceDeleteHandler();
 

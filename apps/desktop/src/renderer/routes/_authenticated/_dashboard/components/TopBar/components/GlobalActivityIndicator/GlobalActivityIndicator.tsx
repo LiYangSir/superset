@@ -21,6 +21,7 @@ import { cn } from "@superset/ui/utils";
 import { useCallback, useMemo, useState } from "react";
 import {
 	LuArchive,
+	LuCheck,
 	LuClipboardCopy,
 	LuFileText,
 	LuLoader,
@@ -305,8 +306,8 @@ export function GlobalActivityIndicator() {
 									onClick={handleArchiveAll}
 									disabled={archiveBatch.isPending}
 								>
-									<LuArchive className="size-3" />
-									Archive all
+									<LuCheck className="size-3" />
+									Clear completed
 								</Button>
 							</div>
 						</div>
