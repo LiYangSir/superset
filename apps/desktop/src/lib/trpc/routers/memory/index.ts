@@ -20,10 +20,8 @@ export const createMemoryRouter = () => {
 
 	return router({
 		// Keep summarizeSession (called by agent hook listener)
-		// Keep getForSession (injects memory into agent prompts)
 		// Keep regenerateFiles (sync button in UI header)
 		summarizeSession: legacy.summarizeSession,
-		getForSession: legacy.getForSession,
 		regenerateFiles: legacy.regenerateFiles,
 
 		// Cognitive memory sub-routers

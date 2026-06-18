@@ -14,6 +14,7 @@ export const SOURCE_TYPES = [
 	{ id: "import", label: "Import", color: "#8b5cf6" },
 	{ id: "git", label: "Git", color: "#f97316" },
 	{ id: "skillssh", label: "skills.sh", color: "#3b82f6" },
+	{ id: "memory", label: "Memory", color: "#10b981" },
 ] as const;
 
 export const UPDATE_STATUSES = [

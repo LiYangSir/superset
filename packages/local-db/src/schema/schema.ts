@@ -852,7 +852,12 @@ export type SelectAgentActivity = typeof agentActivities.$inferSelect;
 // Skills management tables
 // =============================================================================
 
-export type SkillSourceType = "local" | "import" | "git" | "skillssh";
+export type SkillSourceType =
+	| "local"
+	| "import"
+	| "git"
+	| "skillssh"
+	| "memory";
 export type SkillUpdateStatus =
 	| "up_to_date"
 	| "update_available"

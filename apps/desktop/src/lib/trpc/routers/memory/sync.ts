@@ -2,17 +2,20 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
-	memories,
 	memoryPolicies,
 	memorySkills,
 	memoryWorldModels,
 	projects,
+	skills,
+	skillTargets,
 } from "@superset/local-db";
 import { and, desc, eq, or } from "drizzle-orm";
 import { localDb } from "main/lib/local-db";
 
 const SUPERSET_DIR_NAME = process.env.SUPERSET_DIR_NAME || ".superset";
-const SUPERSET_MEMORY_PREFIX = "superset-";
+const SUPERSET_MEMORY_BLOCK_START = "<!-- superset-memory:start -->";
+const SUPERSET_MEMORY_BLOCK_END = "<!-- superset-memory:end -->";
+const SUPERSET_SKILL_PREFIX = "memory-";
 
 export function getSupersetHomeDir(): string {
 	return (
@@ -29,11 +32,12 @@ export function getClaudeMemoryDir(projectPath: string): string {
 	return path.join(os.homedir(), ".claude", "projects", encoded, "memory");
 }
 
-export function categoryToSlug(category: string): string {
-	return category
+function slugify(value: string, fallback: string): string {
+	const slug = value
 		.toLowerCase()
-		.replace(/\s+/g, "-")
-		.replace(/[^a-z0-9-]/g, "");
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "");
+	return slug || fallback;
 }
 
 export function writeMemoryFile(filePath: string, content: string) {
@@ -44,211 +48,94 @@ export function writeMemoryFile(filePath: string, content: string) {
 	fs.renameSync(tmpPath, filePath);
 }
 
-export function formatMemoriesAsMarkdown(
-	title: string,
-	mems: Array<{ content: string; category: string | null }>,
-): string {
-	const grouped = new Map<string, string[]>();
-	for (const mem of mems) {
-		const cat = mem.category || "General";
-		if (!grouped.has(cat)) grouped.set(cat, []);
-		grouped.get(cat)?.push(mem.content);
-	}
-
-	const lines = [`# ${title}`, ""];
-	for (const [category, items] of grouped) {
-		lines.push(`## ${category}`);
-		for (const item of items) {
-			lines.push(`- ${item}`);
-		}
-		lines.push("");
-	}
-
-	return lines.join("\n");
-}
-
-function updateMemoryIndex(
-	memoryDir: string,
-	entries: Array<{ slug: string; name: string; description: string }>,
-) {
-	const indexPath = path.join(memoryDir, "MEMORY.md");
-
-	let existingLines: string[] = [];
+function removeFileIfExists(filePath: string) {
 	try {
-		existingLines = fs
-			.readFileSync(indexPath, "utf-8")
-			.split("\n")
-			.filter(
-				(line) => line.trim() && !line.includes(`(${SUPERSET_MEMORY_PREFIX}`),
-			);
+		fs.unlinkSync(filePath);
 	} catch {}
-
-	const newLines = entries.map(
-		(e) =>
-			`- [${e.name}](${SUPERSET_MEMORY_PREFIX}${e.slug}.md) — ${e.description}`,
-	);
-
-	const allLines = [...existingLines, ...newLines];
-
-	if (allLines.length === 0) {
-		try {
-			fs.unlinkSync(indexPath);
-		} catch {}
-		return;
-	}
-
-	writeMemoryFile(indexPath, `${allLines.join("\n")}\n`);
 }
 
-export function syncToClaudeMemory(projectPath: string, projectId?: string) {
-	const globalMems = localDb
-		.select()
-		.from(memories)
-		.where(eq(memories.scope, "global"))
-		.orderBy(desc(memories.updatedAt))
-		.all();
-
-	let projectMems: typeof globalMems = [];
-	if (projectId) {
-		projectMems = localDb
-			.select()
-			.from(memories)
-			.where(
-				and(eq(memories.scope, "project"), eq(memories.projectId, projectId)),
-			)
-			.orderBy(desc(memories.updatedAt))
-			.all();
-	}
-
-	const memoryDir = getClaudeMemoryDir(projectPath);
-	fs.mkdirSync(memoryDir, { recursive: true });
-
+function removeGeneratedClaudeFiles(memoryDir: string) {
 	try {
 		for (const file of fs.readdirSync(memoryDir)) {
-			if (file.startsWith(SUPERSET_MEMORY_PREFIX) && file.endsWith(".md")) {
+			if (file.startsWith("superset-") && file.endsWith(".md")) {
 				fs.unlinkSync(path.join(memoryDir, file));
 			}
 		}
 	} catch {}
-
-	const allMems = [...globalMems, ...projectMems];
-	if (allMems.length === 0) {
-		updateMemoryIndex(memoryDir, []);
-		return;
-	}
-
-	const grouped = new Map<string, { scope: string; items: string[] }>();
-	for (const mem of allMems) {
-		const cat = mem.category || "General";
-		if (!grouped.has(cat)) {
-			grouped.set(cat, { scope: mem.scope, items: [] });
-		}
-		grouped.get(cat)?.items.push(mem.content);
-	}
-
-	const entries: Array<{ slug: string; name: string; description: string }> =
-		[];
-
-	for (const [category, { scope, items }] of grouped) {
-		const slug = categoryToSlug(category);
-		const fileName = `${SUPERSET_MEMORY_PREFIX}${slug}.md`;
-		const memType = scope === "project" ? "project" : "user";
-
-		const content = [
-			"---",
-			`name: ${category}`,
-			`description: ${category} - synced from Superset`,
-			`type: ${memType}`,
-			"---",
-			"",
-			...items.map((item) => (item.includes("\n") ? item : `- ${item}`)),
-			"",
-		].join("\n");
-
-		writeMemoryFile(path.join(memoryDir, fileName), content);
-		entries.push({
-			slug,
-			name: category,
-			description: `${category} (Superset)`,
-		});
-	}
-
-	updateMemoryIndex(memoryDir, entries);
 }
 
-export function regenerateGlobalMemoryFile() {
-	const globalMemories = localDb
-		.select()
-		.from(memories)
-		.where(eq(memories.scope, "global"))
-		.orderBy(desc(memories.updatedAt))
-		.all();
+function replaceSupersetBlock(existing: string, block: string | null): string {
+	const start = existing.indexOf(SUPERSET_MEMORY_BLOCK_START);
+	const end = existing.indexOf(SUPERSET_MEMORY_BLOCK_END);
+	const before =
+		start >= 0 && end > start ? existing.slice(0, start).trimEnd() : existing;
+	const after =
+		start >= 0 && end > start
+			? existing.slice(end + SUPERSET_MEMORY_BLOCK_END.length).trimStart()
+			: "";
 
-	const filePath = path.join(getSupersetHomeDir(), "memory.md");
+	const parts = [before.trim(), block?.trim(), after.trim()].filter(Boolean);
+	return parts.length > 0 ? `${parts.join("\n\n")}\n` : "";
+}
 
-	if (globalMemories.length === 0) {
-		try {
-			fs.unlinkSync(filePath);
-		} catch {}
-	} else {
-		writeMemoryFile(
-			filePath,
-			formatMemoriesAsMarkdown("Superset Memory (Global)", globalMemories),
-		);
+function formatCognitiveMemory(
+	activePolicies: Array<typeof memoryPolicies.$inferSelect>,
+	activeWorldModels: Array<typeof memoryWorldModels.$inferSelect>,
+): string | null {
+	if (activePolicies.length === 0 && activeWorldModels.length === 0) {
+		return null;
 	}
 
-	const allProjects = localDb.select().from(projects).all();
-	for (const project of allProjects) {
-		if (project.mainRepoPath) {
-			syncToClaudeMemory(project.mainRepoPath, project.id);
+	const sections: string[] = [
+		SUPERSET_MEMORY_BLOCK_START,
+		"# Superset Memory",
+		"",
+		"These notes are generated from Superset cognitive memory.",
+		"",
+	];
+
+	if (activePolicies.length > 0) {
+		sections.push("## Policies");
+		const byCategory = new Map<string, typeof activePolicies>();
+		for (const policy of activePolicies) {
+			const category = policy.category || "General";
+			if (!byCategory.has(category)) byCategory.set(category, []);
+			byCategory.get(category)?.push(policy);
+		}
+
+		for (const [category, policies] of byCategory) {
+			sections.push(`### ${category}`);
+			for (const policy of policies) {
+				sections.push(`- ${policy.trigger} -> ${policy.procedure}`);
+			}
+			sections.push("");
 		}
 	}
-}
 
-export function regenerateProjectMemoryFile(projectId: string) {
-	const project = localDb
-		.select()
-		.from(projects)
-		.where(eq(projects.id, projectId))
-		.get();
+	const modelGroups: Array<{
+		type: "environment" | "inference" | "constraint";
+		title: string;
+	}> = [
+		{ type: "environment", title: "Environment Knowledge" },
+		{ type: "inference", title: "Behavioral Rules" },
+		{ type: "constraint", title: "Constraints" },
+	];
 
-	if (!project) return;
-
-	const projectMemories = localDb
-		.select()
-		.from(memories)
-		.where(
-			and(eq(memories.scope, "project"), eq(memories.projectId, projectId)),
-		)
-		.orderBy(desc(memories.updatedAt))
-		.all();
-
-	const filePath = path.join(project.mainRepoPath, ".superset", "memory.md");
-
-	if (projectMemories.length === 0) {
-		try {
-			fs.unlinkSync(filePath);
-		} catch {}
-	} else {
-		writeMemoryFile(
-			filePath,
-			formatMemoriesAsMarkdown(
-				`Superset Memory (${project.name})`,
-				projectMemories,
-			),
-		);
+	for (const group of modelGroups) {
+		const models = activeWorldModels.filter((m) => m.modelType === group.type);
+		if (models.length === 0) continue;
+		sections.push(`## ${group.title}`);
+		for (const model of models) {
+			sections.push(`- ${model.content}`);
+		}
+		sections.push("");
 	}
 
-	if (project.mainRepoPath) {
-		syncToClaudeMemory(project.mainRepoPath, projectId);
-	}
+	sections.push(SUPERSET_MEMORY_BLOCK_END);
+	return sections.join("\n");
 }
 
-/**
- * Sync cognitive memory (L2 policies, L3 world models, skills) to Claude Code native memory.
- * Produces a single superset-memory.md file with all active higher-layer memories.
- */
-export function syncCognitiveMemoryToFiles(projectId?: string) {
+function syncProjectMemory(projectPath: string, projectId?: string): string {
 	const activePolicies = localDb
 		.select()
 		.from(memoryPolicies)
@@ -289,131 +176,191 @@ export function syncCognitiveMemoryToFiles(projectId?: string) {
 		.orderBy(desc(memoryWorldModels.confidence))
 		.all();
 
-	const activeSkills = localDb
-		.select()
-		.from(memorySkills)
-		.where(
-			projectId
-				? and(
-						eq(memorySkills.status, "active"),
-						or(
-							eq(memorySkills.scope, "global"),
-							eq(memorySkills.projectId, projectId),
-						),
-					)
-				: and(
-						eq(memorySkills.status, "active"),
-						eq(memorySkills.scope, "global"),
-					),
-		)
-		.orderBy(desc(memorySkills.eta))
-		.all();
+	const memoryDir = getClaudeMemoryDir(projectPath);
+	fs.mkdirSync(memoryDir, { recursive: true });
+	removeGeneratedClaudeFiles(memoryDir);
 
-	if (
-		activePolicies.length === 0 &&
-		activeWorldModels.length === 0 &&
-		activeSkills.length === 0
-	) {
-		return;
+	const indexPath = path.join(memoryDir, "MEMORY.md");
+	let existing = "";
+	try {
+		existing = fs.readFileSync(indexPath, "utf-8");
+	} catch {}
+
+	const block = formatCognitiveMemory(activePolicies, activeWorldModels);
+	const next = replaceSupersetBlock(existing, block);
+
+	if (next.trim()) {
+		writeMemoryFile(indexPath, next);
+	} else {
+		removeFileIfExists(indexPath);
 	}
 
-	const sections: string[] = [
+	removeFileIfExists(path.join(projectPath, ".superset", "memory.md"));
+
+	return indexPath;
+}
+
+function formatSkillMarkdown(skill: typeof memorySkills.$inferSelect): string {
+	const lines = [
 		"---",
-		"name: Superset Cognitive Memory",
-		"description: Multi-layer cognitive memory synced from Superset (policies, world models, skills)",
-		"type: project",
+		`name: ${skill.name}`,
+		`description: ${skill.invocationGuide}`,
 		"---",
+		"",
+		`# ${skill.name}`,
+		"",
+		skill.invocationGuide,
 		"",
 	];
 
-	if (activeSkills.length > 0) {
-		sections.push("## Crystallized Skills");
-		for (const skill of activeSkills) {
-			sections.push(`- **${skill.name}**: ${skill.invocationGuide}`);
-		}
-		sections.push("");
-	}
-
-	if (activePolicies.length > 0) {
-		sections.push("## Policies");
-		const byCategory = new Map<string, typeof activePolicies>();
-		for (const p of activePolicies) {
-			const cat = p.category || "General";
-			if (!byCategory.has(cat)) byCategory.set(cat, []);
-			byCategory.get(cat)?.push(p);
-		}
-		for (const [cat, policies] of byCategory) {
-			sections.push(`### ${cat}`);
-			for (const p of policies) {
-				sections.push(`- WHEN ${p.trigger} THEN ${p.procedure}`);
+	if (skill.procedureJson && skill.procedureJson.length > 0) {
+		lines.push("## Procedure");
+		for (const step of skill.procedureJson) {
+			lines.push(`${step.step}. ${step.action}`);
+			if (step.detail) {
+				lines.push(`   ${step.detail}`);
 			}
 		}
-		sections.push("");
+		lines.push("");
 	}
 
-	const envModels = activeWorldModels.filter(
-		(m) => m.modelType === "environment",
-	);
-	const infModels = activeWorldModels.filter(
-		(m) => m.modelType === "inference",
-	);
-	const conModels = activeWorldModels.filter(
-		(m) => m.modelType === "constraint",
-	);
-
-	if (envModels.length > 0) {
-		sections.push("## Environment Knowledge");
-		for (const m of envModels) sections.push(`- ${m.content}`);
-		sections.push("");
+	if (skill.evidenceAnchors && skill.evidenceAnchors.length > 0) {
+		lines.push("## Evidence");
+		for (const evidence of skill.evidenceAnchors) {
+			lines.push(`- ${evidence}`);
+		}
+		lines.push("");
 	}
 
-	if (infModels.length > 0) {
-		sections.push("## Behavioral Rules");
-		for (const m of infModels) sections.push(`- ${m.content}`);
-		sections.push("");
+	return lines.join("\n");
+}
+
+function registerActiveMemorySkills(): number {
+	const activeSkills = localDb
+		.select()
+		.from(memorySkills)
+		.where(eq(memorySkills.status, "active"))
+		.orderBy(desc(memorySkills.eta))
+		.all();
+
+	const skillsRoot = path.join(getSupersetHomeDir(), "skills");
+	const activeSourceRefs = new Set(activeSkills.map((skill) => skill.id));
+	const existingMemorySkills = localDb
+		.select()
+		.from(skills)
+		.where(eq(skills.sourceType, "memory"))
+		.all();
+
+	for (const existing of existingMemorySkills) {
+		if (existing.sourceRef && activeSourceRefs.has(existing.sourceRef)) {
+			continue;
+		}
+
+		localDb
+			.delete(skillTargets)
+			.where(eq(skillTargets.skillId, existing.id))
+			.run();
+		localDb.delete(skills).where(eq(skills.id, existing.id)).run();
+		if (existing.centralPath.startsWith(skillsRoot)) {
+			try {
+				fs.rmSync(existing.centralPath, { recursive: true, force: true });
+			} catch {}
+		}
 	}
 
-	if (conModels.length > 0) {
-		sections.push("## Constraints");
-		for (const m of conModels) sections.push(`- ${m.content}`);
-		sections.push("");
+	for (const skill of activeSkills) {
+		const dirName = `${SUPERSET_SKILL_PREFIX}${slugify(
+			skill.name,
+			skill.id.slice(0, 8),
+		)}-${skill.id.slice(0, 8)}`;
+		const centralPath = path.join(skillsRoot, dirName);
+		writeMemoryFile(
+			path.join(centralPath, "SKILL.md"),
+			formatSkillMarkdown(skill),
+		);
+
+		const existing = localDb
+			.select()
+			.from(skills)
+			.where(
+				and(eq(skills.sourceType, "memory"), eq(skills.sourceRef, skill.id)),
+			)
+			.get();
+
+		if (
+			existing &&
+			existing.centralPath !== centralPath &&
+			existing.centralPath.startsWith(skillsRoot)
+		) {
+			try {
+				fs.rmSync(existing.centralPath, { recursive: true, force: true });
+			} catch {}
+		}
+
+		const values = {
+			name: skill.name,
+			description: skill.invocationGuide,
+			sourceType: "memory" as const,
+			sourceRef: skill.id,
+			sourceRefResolved: null,
+			sourceSubpath: null,
+			sourceBranch: null,
+			sourceRevision: null,
+			remoteRevision: null,
+			updateStatus: "local_only" as const,
+			centralPath,
+			contentHash: String(skill.updatedAt),
+			enabled: true,
+			tags: ["memory"],
+			updatedAt: Date.now(),
+		};
+
+		if (existing) {
+			localDb
+				.update(skills)
+				.set(values)
+				.where(eq(skills.id, existing.id))
+				.run();
+		} else {
+			localDb
+				.insert(skills)
+				.values({
+					...values,
+					createdAt: Date.now(),
+				})
+				.run();
+		}
 	}
 
-	const content = sections.join("\n");
+	return activeSkills.length;
+}
 
-	// Write to ~/.superset/cognitive-memory.md (always)
-	writeMemoryFile(
-		path.join(getSupersetHomeDir(), "cognitive-memory.md"),
-		content,
-	);
-
+function getProjectsToSync(projectId?: string) {
 	if (projectId) {
-		// Write to this project's Claude memory dir
 		const project = localDb
 			.select()
 			.from(projects)
 			.where(eq(projects.id, projectId))
 			.get();
-		if (project?.mainRepoPath) {
-			const memoryDir = getClaudeMemoryDir(project.mainRepoPath);
-			fs.mkdirSync(memoryDir, { recursive: true });
-			writeMemoryFile(
-				path.join(memoryDir, `${SUPERSET_MEMORY_PREFIX}cognitive.md`),
-				content,
-			);
-		}
-	} else {
-		// Global-only: sync to ALL projects' Claude memory dirs
-		const allProjects = localDb.select().from(projects).all();
-		for (const project of allProjects) {
-			if (project.mainRepoPath) {
-				const memoryDir = getClaudeMemoryDir(project.mainRepoPath);
-				fs.mkdirSync(memoryDir, { recursive: true });
-				writeMemoryFile(
-					path.join(memoryDir, `${SUPERSET_MEMORY_PREFIX}cognitive.md`),
-					content,
-				);
-			}
-		}
+		return project ? [project] : [];
 	}
+
+	return localDb.select().from(projects).all();
+}
+
+export function syncCognitiveMemoryToFiles(projectId?: string) {
+	const syncedMemoryFiles: string[] = [];
+	for (const project of getProjectsToSync(projectId)) {
+		if (!project.mainRepoPath) continue;
+		syncedMemoryFiles.push(syncProjectMemory(project.mainRepoPath, project.id));
+	}
+
+	removeFileIfExists(path.join(getSupersetHomeDir(), "memory.md"));
+	removeFileIfExists(path.join(getSupersetHomeDir(), "cognitive-memory.md"));
+
+	return {
+		success: true,
+		memoryFiles: syncedMemoryFiles,
+		skillsRegistered: registerActiveMemorySkills(),
+	};
 }

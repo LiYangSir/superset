@@ -24,7 +24,7 @@ import { SkillCard } from "../SkillCard/SkillCard";
 import { SkillDetailPanel } from "../SkillDetailPanel/SkillDetailPanel";
 
 export function MySkillsTab() {
-	const { data: skills } = electronTrpc.skills.list.useQuery();
+	const { data: skills = [] } = electronTrpc.skills.list.useQuery();
 	const { data: tools } = electronTrpc.skills.tools.getStatus.useQuery();
 
 	const {
@@ -57,8 +57,6 @@ export function MySkillsTab() {
 	}, [skills]);
 
 	const filtered = useMemo(() => {
-		if (!skills) return [];
-
 		let result = [...skills];
 
 		if (search) {
@@ -220,7 +218,7 @@ export function MySkillsTab() {
 				<div className="flex-1 overflow-auto p-4">
 					{filtered.length === 0 ? (
 						<div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-							{skills?.length === 0
+							{skills.length === 0
 								? "No skills installed"
 								: "No skills match the current filters"}
 						</div>

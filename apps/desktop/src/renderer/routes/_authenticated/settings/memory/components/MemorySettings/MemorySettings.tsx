@@ -9,29 +9,34 @@ import { SkillsTab } from "./components/SkillsTab";
 import { WorldModelsTab } from "./components/WorldModelsTab";
 
 export function MemorySettings() {
-	const syncMemory = electronTrpc.memory.regenerateFiles.useMutation();
-
+	const utils = electronTrpc.useUtils();
+	const syncMemory = electronTrpc.memory.regenerateFiles.useMutation({
+		onSuccess: () => {
+			utils.skills.list.invalidate();
+		},
+	});
 	return (
 		<div className="p-6 max-w-6xl w-full">
 			<div className="mb-6 flex items-start justify-between">
 				<div>
 					<h2 className="text-xl font-semibold">Memory</h2>
 					<p className="text-sm text-muted-foreground mt-1">
-						Cognitive memory system — policies, world models, and skills learned
-						from agent sessions.
+						认知记忆系统 — 从代理会话中学习到的策略、世界模型和技能。
 					</p>
 				</div>
-				<Button
-					variant="outline"
-					size="sm"
-					onClick={() => syncMemory.mutate({})}
-					disabled={syncMemory.isPending}
-				>
-					<HiOutlineArrowPath
-						className={`h-3.5 w-3.5 mr-1.5 ${syncMemory.isPending ? "animate-spin" : ""}`}
-					/>
-					{syncMemory.isPending ? "Syncing..." : "Sync to Agents"}
-				</Button>
+				<div className="flex gap-2">
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => syncMemory.mutate({})}
+						disabled={syncMemory.isPending}
+					>
+						<HiOutlineArrowPath
+							className={`h-3.5 w-3.5 mr-1.5 ${syncMemory.isPending ? "animate-spin" : ""}`}
+						/>
+						{syncMemory.isPending ? "同步中..." : "同步 Memory / 注册 Skills"}
+					</Button>
+				</div>
 			</div>
 
 			<Tabs defaultValue="overview">
