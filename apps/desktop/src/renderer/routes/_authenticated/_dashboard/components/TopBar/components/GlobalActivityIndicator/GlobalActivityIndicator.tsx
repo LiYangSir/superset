@@ -55,22 +55,8 @@ export function GlobalActivityIndicator() {
 	);
 
 	electronTrpc.agentActivities.subscribeUpdates.useSubscription(undefined, {
-		onData: (event) => {
+		onData: () => {
 			utils.agentActivities.listGlobal.invalidate();
-			if (!open && (event.type === "update" || event.type === "complete")) {
-				utils.agentActivities.listGlobal.invalidate().then(() => {
-					const fresh = utils.agentActivities.listGlobal.getData({
-						includeArchived: showArchived,
-						limit: 200,
-					});
-					const hasWaiting = fresh?.some(
-						(r) => r.activity.status === "waiting_for_input",
-					);
-					if (hasWaiting) {
-						setOpen(true);
-					}
-				});
-			}
 		},
 	});
 
